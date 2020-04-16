@@ -17,7 +17,7 @@ class S2VGraph(object):
         self.max_neighbor = 0
 
 
-def load_data(preprocessing, run, rois, threshold, loaddir=None, orthogonal=True):
+def load_data(preprocessing, run, rois, threshold, type):
     subject_list = [subject.split('.')[0][1:] for subject in os.listdir('data/connectivity/{}/{}/{}'.format(preprocessing, run, rois))]
     subject_list.sort()
 
@@ -26,13 +26,15 @@ def load_data(preprocessing, run, rois, threshold, loaddir=None, orthogonal=True
     connectivity = DataEdges()
 
     _, behav_labels = behav.get_feature()
-    _, node_labels = roi.get_feature(one_hot=orthogonal)
 
     g_list = []
     label_dict = {}
     feat_dict = {}
 
     for i, subject in enumerate(subject_list):
+        if 'bold' in type:
+            roi(subject)
+        _, node_labels = roi.get_feature(type)
         connectivity(preprocessing, run, rois, subject)
         _, connection = connectivity.get_adjacency(100-threshold)
         n = node_labels
@@ -59,7 +61,7 @@ def load_data(preprocessing, run, rois, threshold, loaddir=None, orthogonal=True
                 attr = None
             else:
                 row, attr = [int(w) for w in row[:tmp]], np.array([float(w) for w in row[tmp:]])
-            if orthogonal:
+            if type=='one_hot':
                 if not row[0] in feat_dict:
                     mapped = len(feat_dict)
                     feat_dict[row[0]] = mapped
@@ -114,13 +116,13 @@ def load_data(preprocessing, run, rois, threshold, loaddir=None, orthogonal=True
     tag2index = {tagset[i]:i for i in range(len(tagset))}
 
     for g in g_list:
-        if orthogonal:
+        if type=='one_hot':
             g.node_features = torch.zeros(len(g.node_tags), len(tagset))
             g.node_features[range(len(g.node_tags)), [tag2index[tag] for tag in g.node_tags]] = 1
         else:
-            g.node_features = torch.zeros(len(g.node_tags), 3)
+            g.node_features = torch.zeros(len(g.node_tags), len(g.node_tags[0]))
             for i in range(len(g.node_tags)):
-                for j in range(3):
+                for j in range(len(g.node_tags[0])):
                     g.node_features[i, j] = g.node_tags[i][j]
 
     return g_list, len(label_dict)

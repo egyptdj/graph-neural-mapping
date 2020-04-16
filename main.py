@@ -136,6 +136,8 @@ def main():
                         help='number of hidden units')
     parser.add_argument('--beta', type=float, default=0.1,
                         help='coefficient of infograph regularizer')
+    parser.add_argument('--weight_decay', type=float, default=0.0,
+                        help='coefficient of l2 weight decay regularizer')
     parser.add_argument('--final_dropout', type=float, default=0.5,
                         help='final layer dropout')
     parser.add_argument('--graph_pooling_type', type=str, default="sum", choices=["sum", "average"],
@@ -146,12 +148,14 @@ def main():
                                         help='whether to learn the epsilon weighting for the center nodes. Does not affect training accuracy though.')
     parser.add_argument('--exp', type = str, default = "graph_neural_mapping",
                                         help='experiment name')
-    parser.add_argument('--as_coordinate', action='store_false',
-                                        help='input feature as RAS coordinates, not one-hot vectors')
+    # parser.add_argument('--as_coordinate', action='store_false',
+    #                                     help='input feature as RAS coordinates, not one-hot vectors')
+    parser.add_argument('--input_feature', type=str, default='one_hot',
+                                        help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'timeseries_bold'])
     parser.add_argument('--preprocessing', type = str, default = "fixextended",
                                         help='HCP run to use', choices=['preproc', 'fixextended'])
     parser.add_argument('--run', type = str, default = "REST1_RL",
-                                        help='HCP run to use', choices=['REST1_LR, REST1_RL, REST2_LR, REST2_RL'])
+                                        help='HCP run to use', choices=['REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'])
     parser.add_argument('--rois', type = str, default = "7_400",
                                         help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20,
@@ -169,14 +173,15 @@ def main():
     os.makedirs('results/{}/latent'.format(args.exp), exist_ok=True)
     os.makedirs('results/{}/model'.format(args.exp), exist_ok=True)
     os.makedirs('results/{}/data'.format(args.exp), exist_ok=True)
+    os.makedirs('results/{}/csv'.format(args.exp), exist_ok=True)
 
-    graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, 'results/{}/data'.format(args.exp), args.as_coordinate)
+    graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
     train_graphs, test_graphs = separate_data(graphs, args.seed, args.fold_idx)
 
     model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     train_summary_writer = SummaryWriter('results/{}/summary/train'.format(args.exp), flush_secs=1, max_queue=1)
     test_summary_writer = SummaryWriter('results/{}/summary/test'.format(args.exp), flush_secs=1, max_queue=1)
@@ -202,6 +207,8 @@ def main():
         print ('EPOCH [{:3d}] TRAIN_LOSS [{:.3f}] ACC [{:.4f}] P [{:.4f}] R [{:.4f}]'.format(epoch, loss_train, acc_train, precision_train, recall_train))
 
     acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
+    print([acc_test, precision_test, recall_test])
+
     test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
     test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
     test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
@@ -215,6 +222,9 @@ def main():
     final_latent_space, _ = get_latent_space(model, test_graphs)
     np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
 
+    with open('results/{}/csv/result.csv'.format(args.exp), 'a') as f:
+        f.write(','.join([str(acc_test), str(precision_test), str(recall_test)]))
+        f.write("\n")
 
 if __name__ == '__main__':
     main()

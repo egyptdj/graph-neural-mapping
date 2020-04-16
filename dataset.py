@@ -43,8 +43,12 @@ class DataNodes(object):
                 row[4] = row[3]
                 row[3] = row[2]
 
-    def get_feature(self, feature=['Hemisphere', 'Region', 'Network', 'Index'], one_hot=True): # List of 'YeoNetwork', 'Hemisphere', 'Network', 'Region', 'Index'
-        if one_hot:
+    def __call__(self, subject):
+        self.df_timeseries = pd.read_csv('data/timeseries/{}.txt'.format(subject), index_col=False, header=None, delimiter='\t').dropna(axis='columns').to_numpy()
+
+    def get_feature(self, type): # List of 'YeoNetwork', 'Hemisphere', 'Network', 'Region', 'Index'
+        feature=['Hemisphere', 'Region', 'Network', 'Index']
+        if type=='one_hot':
             filtered_features = self.features[feature]
             node_features = filtered_features.apply(lambda x: '_'.join(x), axis='columns').to_dict()
             node_label = {}
@@ -58,13 +62,25 @@ class DataNodes(object):
                 node_label[k] = label
             return node_features, node_label # dict {roi: feature_string} / dict {roi: label_value}
 
-        else:
+        elif type=='coordinate':
             filtered_features = self.df_coord[['R','A','S']]
             node_label_dict = filtered_features.to_dict()
             node_label = {}
             for k in node_label_dict['R'].keys():
                 node_label[k] = (node_label_dict['R'][k], node_label_dict['A'][k], node_label_dict['S'][k])
             return node_label_dict, node_label # dict {R,A,S:{roi: coordinate}} / dict {roi: tuple (R,A,S) coordinate}
+
+        elif type=='mean_bold':
+            node_label = np.mean(self.df_timeseries, axis=1, keep_dims=True)
+            node_label_dict = {}
+            pass
+
+
+        elif type=='timeseries_bold':
+            pass
+
+        else:
+            raise Exception('unknown node feature type')
 
 
 # Class of edges, i.e. FC features

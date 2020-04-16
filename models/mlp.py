@@ -40,7 +40,7 @@ class MLP(nn.Module):
     def forward(self, x):
         if self.linear_or_not:
             #If linear model
-            return self.linear(x)
+            return F.relu(self.linear(x))
         else:
             #If MLP
             h = x

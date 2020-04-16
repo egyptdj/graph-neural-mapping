@@ -18,8 +18,8 @@ def main():
     saliency1 = []
 
     for dir in opt.datadir:
-        saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
-        saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
+        saliency0.append(np.load(os.path.join(dir, 'saliency0.npy')))
+        saliency1.append(np.load(os.path.join(dir, 'saliency1.npy')))
 
     saliency0 = np.abs(np.diagonal(np.concatenate(saliency0, 0), axis1=1, axis2=2))
     saliency1 = np.abs(np.diagonal(np.concatenate(saliency1, 0), axis1=1, axis2=2))
@@ -33,7 +33,7 @@ def main():
     for subjidx, (sal0, sal1) in enumerate(zip(saliency0, saliency1)):
         saliency0array = roiimgarray.copy()
         saliency1array = roiimgarray.copy()
-        print("EXTRACTING SUJBECT: {}".format(subjidx))
+        print("EXTRACTING SUBJECT: {}".format(subjidx))
         for i, (s0, s1) in enumerate(zip(sal0, sal1)):
             roi_voxel_idx = np.where(roiimgarray==i+1)
             for j in range(roi_voxel_idx[0].shape[0]):
