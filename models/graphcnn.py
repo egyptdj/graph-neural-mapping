@@ -460,7 +460,7 @@ class GIN_CAM(nn.Module):
             device: which device to use
         '''
 
-        super(GCN_CAM, self).__init__()
+        super(GIN_CAM, self).__init__()
 
         self.device = device
 

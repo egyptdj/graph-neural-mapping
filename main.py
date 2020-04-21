@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from util import load_data, separate_data
-from models.graphcnn import GIN_InfoMaxReg, GCN_CAM
+from models.graphcnn import GIN_InfoMaxReg, GCN_CAM, GIN_CAM
 
 from torch.utils.tensorboard import SummaryWriter
 
