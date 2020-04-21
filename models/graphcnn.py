@@ -530,7 +530,7 @@ class GIN_CAM(nn.Module):
         h = self.conv4(h, edge_list)
         h = self.bn4(h)
 
-        h = G.nn.global_sum_pool(h, batch, len(batch_graph))
+        h = G.nn.global_add_pool(h, batch, len(batch_graph))
         c_logit = self.linear(h)
 
         return c_logit, c_logit
@@ -569,7 +569,7 @@ class GIN_CAM(nn.Module):
         h = self.conv4(h, edge_list)
         h = self.bn4(h)
 
-        h = G.nn.global_sum_pool(h, batch, len(batch_graph))
+        h = G.nn.global_add_pool(h, batch, len(batch_graph))
         c_logit = self.linear(h)
 
         # predicting 0
@@ -672,7 +672,7 @@ class GIN_CAM_concat(nn.Module):
         h = self.bn4(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_sum_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        h = G.nn.global_add_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
         c_logit = self.linear(h)
 
         return c_logit, c_logit
@@ -717,7 +717,7 @@ class GIN_CAM_concat(nn.Module):
         h = self.bn4(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_sum_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        h = G.nn.global_add_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
         c_logit = self.linear(h)
 
         # predicting 0
