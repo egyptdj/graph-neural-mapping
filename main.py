@@ -35,7 +35,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
 
-        if args.gcn_baseline:
+        if args.gcn_baseline or args.gin_baseline:
             d_loss = 0.0
         else:
             d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
@@ -142,6 +142,7 @@ def main():
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
     parser.add_argument('--gcn_baseline', action='store_true', help='test the model with gcn baseline')
+    parser.add_argument('--gin_baseline', action='store_true', help='test the model with gcn baseline')
     args = parser.parse_args()
 
     #set up seeds and gpu device
@@ -161,10 +162,12 @@ def main():
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
     train_graphs, test_graphs = separate_data(graphs, args.seed, args.fold_idx)
 
-    if not args.gcn_baseline:
-        model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
-    else:
+    if args.gcn_baseline:
         model = GCN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    elif args.gin_baseline:
+        model = GIN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    else:
+        model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -174,7 +177,7 @@ def main():
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
-    if not args.gcn_baseline:
+    if not (args.gcn_baseline or args.gin_baseline):
         initial_latent_space, labels = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
         np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
@@ -205,7 +208,7 @@ def main():
     np.save('results/{}/saliency/saliency_female.npy'.format(args.exp), saliency_map_0)
     np.save('results/{}/saliency/saliency_male.npy'.format(args.exp), saliency_map_1)
 
-    if not args.gcn_baseline:
+    if not (args.gcn_baseline or args.gin_baseline):
         final_latent_space, _ = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
 
