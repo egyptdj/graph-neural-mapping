@@ -71,13 +71,21 @@ class DataNodes(object):
             return node_label_dict, node_label # dict {R,A,S:{roi: coordinate}} / dict {roi: tuple (R,A,S) coordinate}
 
         elif type=='mean_bold':
-            node_label = np.mean(self.df_timeseries, axis=1, keep_dims=True)
-            node_label_dict = {}
-            pass
+            node_label_numpy = np.mean(self.df_timeseries, axis=0)
+            node_label_numpy = (node_label_numpy - node_label_numpy.mean()) / (node_label_numpy.std() + 1e-8)
+            node_label = {}
+            for i, timeseries in enumerate(node_label_numpy):
+                node_label[i] = tuple([timeseries])
+            return node_label_numpy, node_label
 
 
         elif type=='timeseries_bold':
-            pass
+            node_label_numpy = self.df_timeseries.T
+            node_label = {}
+            for i, timeseries in enumerate(node_label_numpy):
+                timeseries = (timeseries - timeseries.mean()) / (timeseries.std() + 1e-8)
+                node_label[i] = tuple(timeseries)
+            return node_label_numpy, node_label
 
         else:
             raise Exception('unknown node feature type')

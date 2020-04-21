@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch_geometric as G
 import numpy as np
 
 import sys
@@ -11,7 +12,7 @@ from classifier import Classifier
 
 
 class GIN_InfoMaxReg(nn.Module):
-    def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim, output_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, device):
+    def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim, output_dim, final_dropout, dropout_layers, learn_eps, graph_pooling_type, neighbor_pooling_type, device):
         '''
             num_layers: number of layers in the neural networks (INCLUDING the input layer)
             num_mlp_layers: number of layers in mlps (EXCLUDING the input layer)
@@ -31,6 +32,7 @@ class GIN_InfoMaxReg(nn.Module):
         self.sigm = nn.Sigmoid()
 
         self.final_dropout = final_dropout
+        self.dropout_layers = dropout_layers
         self.device = device
         self.num_layers = num_layers
         self.graph_pooling_type = graph_pooling_type
@@ -217,12 +219,20 @@ class GIN_InfoMaxReg(nn.Module):
         for layer in range(self.num_layers-1):
             if self.neighbor_pooling_type == "max" and self.learn_eps:
                 h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
+                if layer in self.dropout_layers:
+                    h = F.dropout(h, 0.5, training=self.training)
             elif not self.neighbor_pooling_type == "max" and self.learn_eps:
                 h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
+                if layer in self.dropout_layers:
+                    h = F.dropout(h, 0.5, training=self.training)
             elif self.neighbor_pooling_type == "max" and not self.learn_eps:
                 h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
+                if layer in self.dropout_layers:
+                    h = F.dropout(h, 0.5, training=self.training)
             elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
                 h = self.next_layer(h, layer, Adj_block = Adj_block)
+                if layer in self.dropout_layers:
+                    h = F.dropout(h, 0.5, training=self.training)
 
             hidden_rep.append(h) # [[557,7],[557,64]x4]
 
@@ -295,6 +305,142 @@ class GIN_InfoMaxReg(nn.Module):
         predicting_class = torch.zeros_like(score_over_layer).to(self.device)
         predicting_class[0, cls] = 1
         score_over_layer.backward(predicting_class)
+        saliency = X_concat.grad
+
+        return saliency
+
+
+class GCN_CAM(nn.Module):
+    def __init__(self,  input_dim, output_dim, device):
+        '''
+            num_layers: number of layers in the neural networks (INCLUDING the input layer)
+            num_mlp_layers: number of layers in mlps (EXCLUDING the input layer)
+            input_dim: dimensionality of input features
+            hidden_dim: dimensionality of hidden units at ALL layers
+            output_dim: number of classes for prediction
+            final_dropout: dropout ratio on the final linear layer
+            learn_eps: If True, learn epsilon to distinguish center nodes from neighboring nodes. If False, aggregate neighbors and center nodes altogether.
+            neighbor_pooling_type: how to aggregate neighbors (mean, average, or max)
+            graph_pooling_type: how to aggregate entire nodes in a graph (mean, average)
+            device: which device to use
+        '''
+
+        super(GCN_CAM, self).__init__()
+
+        self.device = device
+
+        ###List of MLPs
+        self.conv0 = G.nn.GCNConv(input_dim, 32)
+        self.bn0 = G.nn.BatchNorm(32)
+        self.conv1 = G.nn.GCNConv(32, 32)
+        self.bn1 = G.nn.BatchNorm(32)
+        self.conv2 = G.nn.GCNConv(32, 64)
+        self.bn2 = G.nn.BatchNorm(64)
+        self.conv3 = G.nn.GCNConv(64, 64)
+        self.bn3 = G.nn.BatchNorm(64)
+        self.conv4 = G.nn.GCNConv(64, 128)
+        self.bn4 = G.nn.BatchNorm(128)
+        self.linear = nn.Linear(128, 2)
+
+
+    def __preprocess_neighbors_sumavepool(self, batch_graph):
+        ###create block diagonal sparse matrix
+
+        edge_mat_list = []
+        start_idx = [0]
+        for i, graph in enumerate(batch_graph):
+            start_idx.append(start_idx[i] + len(graph.g))
+            edge_mat_list.append(graph.edge_mat + start_idx[i])
+        Adj_block_idx = torch.cat(edge_mat_list, 1)
+        Adj_block_elem = torch.ones(Adj_block_idx.shape[1])
+
+        num_node = start_idx[-1]
+        self_loop_edge = torch.LongTensor([range(num_node), range(num_node)])
+        elem = torch.ones(num_node)
+        Adj_block_idx = torch.cat([Adj_block_idx, self_loop_edge], 1)
+        Adj_block_elem = torch.cat([Adj_block_elem, elem], 0)
+
+        Adj_block = torch.sparse.FloatTensor(Adj_block_idx, Adj_block_elem, torch.Size([start_idx[-1],start_idx[-1]]))
+
+        return Adj_block.to(self.device)
+
+
+    def forward(self, batch_graph):
+        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
+        batch = []
+        for i in range(len(batch_graph)):
+            batch += [i]*400
+        batch = torch.LongTensor(batch).to(self.device)
+
+        Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
+        edge_list = Adj_block._indices()
+
+        h = X_concat
+
+        h = self.conv0(h, edge_list)
+        h = self.bn0(h)
+        h = F.relu(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv1(h, edge_list)
+        h = self.bn1(h)
+        h = F.relu(h)
+        h = self.conv2(h, edge_list)
+        h = self.bn2(h)
+        h = F.relu(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv3(h, edge_list)
+        h = self.bn3(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = F.relu(h)
+        h = self.conv4(h, edge_list)
+        h = self.bn4(h)
+
+        h = G.nn.global_mean_pool(h, batch, len(batch_graph))
+        c_logit = self.linear(h)
+
+        return c_logit, c_logit
+
+    def compute_saliency(self, batch_graph, cls):
+        self.eval()
+        assert len(batch_graph)==1
+        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
+        X_concat.requires_grad_()
+
+        batch = []
+        for i in range(len(batch_graph)):
+            batch += [i]*400
+        batch = torch.LongTensor(batch).to(self.device)
+
+        Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
+        edge_list = Adj_block._indices()
+
+        h = X_concat
+
+        h = self.conv0(h, edge_list)
+        h = self.bn0(h)
+        h = F.relu(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv1(h, edge_list)
+        h = self.bn1(h)
+        h = F.relu(h)
+        h = self.conv2(h, edge_list)
+        h = self.bn2(h)
+        h = F.relu(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv3(h, edge_list)
+        h = self.bn3(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = F.relu(h)
+        h = self.conv4(h, edge_list)
+        h = self.bn4(h)
+
+        h = G.nn.global_mean_pool(h, batch, len(batch_graph))
+        c_logit = self.linear(h)
+
+        # predicting 0
+        predicting_class = torch.zeros_like(c_logit).to(self.device)
+        predicting_class[0, cls] = 1
+        c_logit.backward(predicting_class)
         saliency = X_concat.grad
 
         return saliency

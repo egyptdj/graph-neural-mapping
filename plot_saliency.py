@@ -20,9 +20,11 @@ def main():
     for dir in opt.datadir:
         saliency0.append(np.load(os.path.join(dir, 'saliency0.npy')))
         saliency1.append(np.load(os.path.join(dir, 'saliency1.npy')))
+        # saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
+        # saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
 
-    saliency0 = np.abs(np.diagonal(np.concatenate(saliency0, 0), axis1=1, axis2=2))
-    saliency1 = np.abs(np.diagonal(np.concatenate(saliency1, 0), axis1=1, axis2=2))
+    saliency0 = np.diagonal(np.concatenate(saliency0, 0), axis1=1, axis2=2)
+    saliency1 = np.diagonal(np.concatenate(saliency1, 0), axis1=1, axis2=2)
 
     roiimg = nib.load(opt.roidir)
     roiimgarray = roiimg.get_fdata()
@@ -63,6 +65,39 @@ def main():
     saliency0img_normalized = nib.Nifti1Image(saliency0array_normalized, roiimgaffine)
     saliency1img_normalized = nib.Nifti1Image(saliency1array_normalized, roiimgaffine)
 
+    saliency0_normalized_idx = (saliency0array_normalized>0.7).astype(np.uint8)+(saliency0array_normalized<-0.7).astype(np.uint8)
+    saliency0_idx_tuple = np.nonzero(saliency0_normalized_idx)
+    saliency0_rois = []
+    saliency0_values = []
+    for i in range(len(saliency0_idx_tuple[0])):
+        roi = roiimgarray[saliency0_idx_tuple[0][i],saliency0_idx_tuple[1][i],saliency0_idx_tuple[2][i]]
+        value = saliency0array_normalized[saliency0_idx_tuple[0][i],saliency0_idx_tuple[1][i],saliency0_idx_tuple[2][i]]
+        if str(roi) not in saliency0_rois:
+            assert value not in saliency0_values
+            saliency0_rois.append(str(roi))
+            saliency0_values.append(str(value))
+
+    saliency1_normalized_idx = (saliency1array_normalized>0.7).astype(np.uint8)+(saliency1array_normalized<-0.7).astype(np.uint8)
+    saliency1_idx_tuple = np.nonzero(saliency1_normalized_idx)
+    saliency1_rois = []
+    saliency1_values = []
+    for i in range(len(saliency1_idx_tuple[0])):
+        roi = roiimgarray[saliency1_idx_tuple[0][i],saliency1_idx_tuple[1][i],saliency1_idx_tuple[2][i]]
+        value = saliency1array_normalized[saliency1_idx_tuple[0][i],saliency1_idx_tuple[1][i],saliency1_idx_tuple[2][i]]
+        if str(roi) not in saliency1_rois:
+            assert value not in saliency1_values
+            saliency1_rois.append(str(roi))
+            saliency1_values.append(str(value))
+
+    with open(os.path.join(opt.savedir, 'saliency_female.csv'), 'w') as f:
+        f.write(','.join(saliency0_rois))
+        f.write("\n")
+        f.write(','.join(saliency0_values))
+
+    with open(os.path.join(opt.savedir, 'saliency_male.csv'), 'w') as f:
+        f.write(','.join(saliency1_rois))
+        f.write("\n")
+        f.write(','.join(saliency1_values))
 
     nib.save(saliency0img, os.path.join(opt.savedir, 'saliency_female.nii'))
     nib.save(saliency1img, os.path.join(opt.savedir, 'saliency_male.nii'))

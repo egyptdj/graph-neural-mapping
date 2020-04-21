@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from util import load_data, separate_data
-from models.graphcnn import GIN_InfoMaxReg
+from models.graphcnn import GIN_InfoMaxReg, GCN_CAM
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -34,9 +34,13 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
         c_logit, d_logit = model(batch_graph)
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
-        d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
 
-        d_loss = d_criterion(d_logit, d_labels)
+        if args.gcn_baseline:
+            d_loss = 0.0
+        else:
+            d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
+            d_loss = d_criterion(d_logit, d_labels)
+
         c_loss = c_criterion(c_logit, c_labels)
 
         #compute loss
@@ -60,7 +64,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
     return average_loss
 
-###pass data to model with minibatch during testing to avoid memory overflow (does not perform backpropagation)
+# pass data to model without minibatching during testing to avoid memory overflow (does not perform backpropagation)
 def pass_data_iteratively(model, graphs):
     model.eval()
     c_logit_list = []
@@ -114,52 +118,30 @@ def main():
     # Training settings
     # Note: Hyper-parameters need to be tuned in order to obtain results reported in the paper.
     parser = argparse.ArgumentParser(description='PyTorch graph convolutional neural net for whole-graph classification')
-    parser.add_argument('--device', type=int, default=0,
-                        help='which gpu to use if any')
-    parser.add_argument('--batch_size', type=int, default=32,
-                        help='input batch size for training')
-    parser.add_argument('--iters_per_epoch', type=int, default=50,
-                        help='number of iterations per each epoch')
-    parser.add_argument('--epochs', type=int, default=150,
-                        help='number of epochs to train')
-    parser.add_argument('--lr', type=float, default=0.01,
-                        help='learning rate')
-    parser.add_argument('--seed', type=int, default=0,
-                        help='random seed for splitting the dataset')
-    parser.add_argument('--fold_idx', type=int, default=0,
-                        help='the index of fold in 10-fold validation.')
-    parser.add_argument('--num_layers', type=int, default=5,
-                        help='number of the GNN layers')
-    parser.add_argument('--num_mlp_layers', type=int, default=2,
-                        help='number of layers for the MLP. 1 means linear model.')
-    parser.add_argument('--hidden_dim', type=int, default=64,
-                        help='number of hidden units')
-    parser.add_argument('--beta', type=float, default=0.1,
-                        help='coefficient of infograph regularizer')
-    parser.add_argument('--weight_decay', type=float, default=0.0,
-                        help='coefficient of l2 weight decay regularizer')
-    parser.add_argument('--final_dropout', type=float, default=0.5,
-                        help='final layer dropout')
-    parser.add_argument('--graph_pooling_type', type=str, default="sum", choices=["sum", "average"],
-                        help='Pooling for over nodes in a graph: sum or average')
-    parser.add_argument('--neighbor_pooling_type', type=str, default="sum", choices=["sum", "average", "max"],
-                        help='Pooling for over neighboring nodes: sum, average or max')
-    parser.add_argument('--learn_eps', action="store_true",
-                                        help='whether to learn the epsilon weighting for the center nodes. Does not affect training accuracy though.')
-    parser.add_argument('--exp', type = str, default = "graph_neural_mapping",
-                                        help='experiment name')
-    # parser.add_argument('--as_coordinate', action='store_false',
-    #                                     help='input feature as RAS coordinates, not one-hot vectors')
-    parser.add_argument('--input_feature', type=str, default='one_hot',
-                                        help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'timeseries_bold'])
-    parser.add_argument('--preprocessing', type = str, default = "fixextended",
-                                        help='HCP run to use', choices=['preproc', 'fixextended'])
-    parser.add_argument('--run', type = str, default = "REST1_RL",
-                                        help='HCP run to use', choices=['REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'])
-    parser.add_argument('--rois', type = str, default = "7_400",
-                                        help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
-    parser.add_argument('--sparsity', type=int, default=20,
-                        help='sparsity K of graph adjacency')
+    parser.add_argument('--device', type=int, default=0, help='which gpu to use if any')
+    parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training')
+    parser.add_argument('--iters_per_epoch', type=int, default=50, help='number of iterations per each epoch')
+    parser.add_argument('--epochs', type=int, default=150, help='number of epochs to train')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--seed', type=int, default=0, help='random seed for splitting the dataset')
+    parser.add_argument('--fold_idx', type=int, default=0, help='the index of fold in 10-fold validation.')
+    parser.add_argument('--num_layers', type=int, default=5, help='number of the GNN layers')
+    parser.add_argument('--num_mlp_layers', type=int, default=2, help='number of layers for the MLP. 1 means linear model.')
+    parser.add_argument('--hidden_dim', type=int, default=64, help='number of hidden units')
+    parser.add_argument('--beta', type=float, default=0.1, help='coefficient of infograph regularizer')
+    parser.add_argument('--weight_decay', type=float, default=0.0, help='coefficient of l2 weight decay regularizer')
+    parser.add_argument('--final_dropout', type=float, default=0.5, help='final layer dropout')
+    parser.add_argument('--dropout_layers', nargs='+', default=[], help='layers to apply dropout')
+    parser.add_argument('--graph_pooling_type', type=str, default="sum", choices=["sum", "average"], help='Pooling for over nodes in a graph: sum or average')
+    parser.add_argument('--neighbor_pooling_type', type=str, default="sum", choices=["sum", "average", "max"], help='Pooling for over neighboring nodes: sum, average or max')
+    parser.add_argument('--learn_eps', action="store_true", help='whether to learn the epsilon weighting for the center nodes. Does not affect training accuracy though.')
+    parser.add_argument('--exp', type = str, default = "graph_neural_mapping", help='experiment name')
+    parser.add_argument('--input_feature', type=str, default='one_hot', help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'timeseries_bold'])
+    parser.add_argument('--preprocessing', type = str, default = "fixextended", help='HCP run to use', choices=['preproc', 'fixextended'])
+    parser.add_argument('--run', type = str, default = "REST1_RL", help='HCP run to use', choices=['REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'])
+    parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
+    parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
+    parser.add_argument('--gcn_baseline', action='store_true', help='test the model with gcn baseline')
     args = parser.parse_args()
 
     #set up seeds and gpu device
@@ -179,7 +161,10 @@ def main():
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
     train_graphs, test_graphs = separate_data(graphs, args.seed, args.fold_idx)
 
-    model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
+    if not args.gcn_baseline:
+        model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
+    else:
+        model = GCN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -189,11 +174,12 @@ def main():
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
-    initial_latent_space, labels = get_latent_space(model, test_graphs)
-    np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
-    np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
-    del initial_latent_space
-    del labels
+    if not args.gcn_baseline:
+        initial_latent_space, labels = get_latent_space(model, test_graphs)
+        np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
+        np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
+        del initial_latent_space
+        del labels
 
     for epoch in range(args.epochs):
         loss_train = train(args, model, device, train_graphs, optimizer, args.beta, epoch)
@@ -219,10 +205,11 @@ def main():
     np.save('results/{}/saliency/saliency_female.npy'.format(args.exp), saliency_map_0)
     np.save('results/{}/saliency/saliency_male.npy'.format(args.exp), saliency_map_1)
 
-    final_latent_space, _ = get_latent_space(model, test_graphs)
-    np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
+    if not args.gcn_baseline:
+        final_latent_space, _ = get_latent_space(model, test_graphs)
+        np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
 
-    with open('results/{}/csv/result.csv'.format(args.exp), 'a') as f:
+    with open('results/{}/csv/result.csv'.format(args.exp), 'w') as f:
         f.write(','.join([str(acc_test), str(precision_test), str(recall_test)]))
         f.write("\n")
 
