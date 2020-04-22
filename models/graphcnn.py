@@ -895,7 +895,7 @@ class GCN_CAM_Chebconv(nn.Module):
             device: which device to use
         '''
 
-        super(GIN_CAM_Chebconv, self).__init__()
+        super(GCN_CAM_Chebconv, self).__init__()
 
         self.device = device
 
