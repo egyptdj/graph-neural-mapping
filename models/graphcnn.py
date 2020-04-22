@@ -895,7 +895,7 @@ class GCN_CAM_Chebconv(nn.Module):
             device: which device to use
         '''
 
-        super(GIN_CAM_concat, self).__init__()
+        super(GIN_CAM_Chebconv, self).__init__()
 
         self.device = device
 
@@ -972,7 +972,7 @@ class GCN_CAM_Chebconv(nn.Module):
         h = F.relu(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_mean_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        h = G.nn.global_mean_pool(h, batch, len(batch_graph))
         c_logit = self.linear(h)
 
         return c_logit, c_logit
@@ -1018,7 +1018,7 @@ class GCN_CAM_Chebconv(nn.Module):
         h = F.relu(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_mean_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        h = G.nn.global_mean_pool(h, batch, len(batch_graph))
         c_logit = self.linear(h)
 
         # predicting 0
