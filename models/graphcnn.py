@@ -59,6 +59,14 @@ class GIN_InfoMaxReg(nn.Module):
         for layer in range(num_layers):
             self.linears_prediction.append(nn.Linear(hidden_dim, output_dim))
 
+        # torch_geometric ginconvs
+        train_eps = True
+        self.conv0 = G.nn.GINConv(nn.Sequential(nn.Linear(input_dim, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv1 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv2 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv3 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv4 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+
 
     def __preprocess_neighbors_maxpool(self, batch_graph):
         ###create padded_neighbor_list in concatenated graph
@@ -216,25 +224,39 @@ class GIN_InfoMaxReg(nn.Module):
         hidden_rep = []
         h = X_concat
 
-        for layer in range(self.num_layers-1):
-            if self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
-                if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
-            elif not self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
-                if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
-            elif self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
-                if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
-            elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, Adj_block = Adj_block)
-                if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
+        # for layer in range(self.num_layers-1):
+        #     if self.neighbor_pooling_type == "max" and self.learn_eps:
+        #         h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
+        #         if layer in self.dropout_layers:
+        #             h = F.dropout(h, 0.5, training=self.training)
+        #     elif not self.neighbor_pooling_type == "max" and self.learn_eps:
+        #         h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
+        #         if layer in self.dropout_layers:
+        #             h = F.dropout(h, 0.5, training=self.training)
+        #     elif self.neighbor_pooling_type == "max" and not self.learn_eps:
+        #         h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
+        #         if layer in self.dropout_layers:
+        #             h = F.dropout(h, 0.5, training=self.training)
+        #     elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
+        #         h = self.next_layer(h, layer, Adj_block = Adj_block)
+        #         if layer in self.dropout_layers:
+        #             h = F.dropout(h, 0.5, training=self.training)
+        #
+        #     hidden_rep.append(h) # [[557,7],[557,64]x4]
 
-            hidden_rep.append(h) # [[557,7],[557,64]x4]
+        h = self.conv0(h, edge_list)
+        hidden_rep.append(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv1(h, edge_list)
+        hidden_rep.append(h)
+        h = self.conv2(h, edge_list)
+        hidden_rep.append(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv3(h, edge_list)
+        hidden_rep.append(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv4(h, edge_list)
+        hidden_rep.append(h)
 
         c_logit = 0
 
@@ -282,17 +304,31 @@ class GIN_InfoMaxReg(nn.Module):
         hidden_rep = []
         h = X_concat
 
-        for layer in range(self.num_layers-1):
-            if self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
-            elif not self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
-            elif self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
-            elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, Adj_block = Adj_block)
+        # for layer in range(self.num_layers-1):
+        #     if self.neighbor_pooling_type == "max" and self.learn_eps:
+        #         h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
+        #     elif not self.neighbor_pooling_type == "max" and self.learn_eps:
+        #         h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
+        #     elif self.neighbor_pooling_type == "max" and not self.learn_eps:
+        #         h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
+        #     elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
+        #         h = self.next_layer(h, layer, Adj_block = Adj_block)
+        #
+        #     hidden_rep.append(h) # [[557,7],[557,64]x4]
 
-            hidden_rep.append(h) # [[557,7],[557,64]x4]
+        h = self.conv0(h, edge_list)
+        hidden_rep.append(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv1(h, edge_list)
+        hidden_rep.append(h)
+        h = self.conv2(h, edge_list)
+        hidden_rep.append(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv3(h, edge_list)
+        hidden_rep.append(h)
+        h = F.dropout(h, 0.5, training=self.training)
+        h = self.conv4(h, edge_list)
+        hidden_rep.append(h)
 
         score_over_layer = 0
 
