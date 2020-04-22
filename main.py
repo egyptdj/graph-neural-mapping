@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from util import load_data, separate_data
-from models.graphcnn import GIN_InfoMaxReg, GCN_CAM, GIN_CAM, GIN_CAM_concat
+from models.graphcnn import *
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -35,7 +35,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
 
-        if args.gcn_baseline or args.gin_baseline or args.gin_concat:
+        if args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat:
             d_loss = 0.0
         else:
             d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
@@ -141,7 +141,9 @@ def main():
     parser.add_argument('--run', type = str, default = "REST1_RL", help='HCP run to use', choices=['REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'])
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
+    parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn baseline')
     parser.add_argument('--gcn_baseline', action='store_true', help='test the model with gcn baseline')
+    parser.add_argument('--gcn_concat', action='store_true', help='test the model with gcn concat')
     parser.add_argument('--gin_baseline', action='store_true', help='test the model with gin baseline')
     parser.add_argument('--gin_concat', action='store_true', help='test the model with gin concat')
     args = parser.parse_args()
@@ -159,12 +161,20 @@ def main():
     os.makedirs('results/{}/data'.format(args.exp), exist_ok=True)
     os.makedirs('results/{}/csv'.format(args.exp), exist_ok=True)
 
-    graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
+    # graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
+    # torch.save(graphs, 'data/graphs.pt')
+    graphs = torch.load('data/graphs.pt')
+    num_classes = 2
+
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
     train_graphs, test_graphs = separate_data(graphs, args.seed, args.fold_idx)
 
-    if args.gcn_baseline:
+    if args.gcn_cheb:
+        model = GCN_CAM_Chebconv(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    elif args.gcn_baseline:
         model = GCN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    elif args.gcn_concat:
+        model = GCN_CAM_concat(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
     elif args.gin_baseline:
         model = GIN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
     elif args.gin_concat:
@@ -180,7 +190,7 @@ def main():
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
-    if not (args.gcn_baseline or args.gin_baseline or args.gin_concat):
+    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat):
         initial_latent_space, labels = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
         np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
@@ -211,7 +221,7 @@ def main():
     np.save('results/{}/saliency/saliency_female.npy'.format(args.exp), saliency_map_0)
     np.save('results/{}/saliency/saliency_male.npy'.format(args.exp), saliency_map_1)
 
-    if not (args.gcn_baseline or args.gin_baseline or args.gin_concat):
+    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat):
         final_latent_space, _ = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
 

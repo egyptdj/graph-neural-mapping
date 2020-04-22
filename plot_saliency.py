@@ -18,8 +18,8 @@ def main():
     saliency1 = []
 
     for dir in opt.datadir:
-        saliency0.append(np.load(os.path.join(dir, 'saliency0.npy')))
-        saliency1.append(np.load(os.path.join(dir, 'saliency1.npy')))
+        saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
+        saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
         # saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
         # saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
 
