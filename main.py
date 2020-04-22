@@ -146,6 +146,7 @@ def main():
     parser.add_argument('--gcn_concat', action='store_true', help='test the model with gcn concat')
     parser.add_argument('--gin_baseline', action='store_true', help='test the model with gin baseline')
     parser.add_argument('--gin_concat', action='store_true', help='test the model with gin concat')
+    parser.add_argument('--gin_concat_dgi', action='store_true', help='test the model with gin concat')
     args = parser.parse_args()
 
     #set up seeds and gpu device
@@ -179,6 +180,8 @@ def main():
         model = GIN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
     elif args.gin_concat:
         model = GIN_CAM_concat(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    elif args.gin_concat_dgi:
+        model = GIN_CAM_concat_infomaxreg(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
     else:
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
@@ -190,7 +193,7 @@ def main():
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
-    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat):
+    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         initial_latent_space, labels = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
         np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
@@ -221,7 +224,7 @@ def main():
     np.save('results/{}/saliency/saliency_female.npy'.format(args.exp), saliency_map_0)
     np.save('results/{}/saliency/saliency_male.npy'.format(args.exp), saliency_map_1)
 
-    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat):
+    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         final_latent_space, _ = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
 
