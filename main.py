@@ -143,6 +143,7 @@ def main():
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
     parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn baseline')
     parser.add_argument('--gcn_baseline', action='store_true', help='test the model with gcn baseline')
+    parser.add_argument('--gcn_dgi', action='store_true', help='test the model with gcn baseline')
     parser.add_argument('--gcn_concat', action='store_true', help='test the model with gcn concat')
     parser.add_argument('--gin_baseline', action='store_true', help='test the model with gin baseline')
     parser.add_argument('--gin_concat', action='store_true', help='test the model with gin concat')
@@ -193,7 +194,7 @@ def main():
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
-    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
+    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         initial_latent_space, labels = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
         np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
@@ -224,7 +225,7 @@ def main():
     np.save('results/{}/saliency/saliency_female.npy'.format(args.exp), saliency_map_0)
     np.save('results/{}/saliency/saliency_male.npy'.format(args.exp), saliency_map_1)
 
-    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
+    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         final_latent_space, _ = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
 
