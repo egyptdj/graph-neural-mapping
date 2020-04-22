@@ -393,7 +393,8 @@ class GCN_CAM(nn.Module):
         h = F.relu(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv4(h, edge_list)
-        # h = self.bn4(h)
+        h = self.bn4(h)
+        h = F.relu(h)
 
         h = G.nn.global_mean_pool(h, batch, len(batch_graph))
         c_logit = self.linear(h)
@@ -432,7 +433,8 @@ class GCN_CAM(nn.Module):
         h = F.dropout(h, 0.5, training=self.training)
         h = F.relu(h)
         h = self.conv4(h, edge_list)
-        # h = self.bn4(h)
+        h = self.bn4(h)
+        h = F.relu(h)
 
         h = G.nn.global_mean_pool(h, batch, len(batch_graph))
         c_logit = self.linear(h)
@@ -475,7 +477,14 @@ class GCN_CAM_concat(nn.Module):
         self.bn3 = G.nn.BatchNorm(64)
         self.conv4 = G.nn.GCNConv(64, 128)
         self.bn4 = G.nn.BatchNorm(128)
-        self.linear = nn.Linear(32+32+64+64+128, 2)
+        # self.linear = nn.Linear(32+32+64+64+128, 2)
+
+        self.linears_prediction = torch.nn.ModuleList()
+        self.linears_prediction.append(nn.Linear(32, 2))
+        self.linears_prediction.append(nn.Linear(32, 2))
+        self.linears_prediction.append(nn.Linear(64, 2))
+        self.linears_prediction.append(nn.Linear(64, 2))
+        self.linears_prediction.append(nn.Linear(128, 2))
 
 
     def __preprocess_neighbors_sumavepool(self, batch_graph):
@@ -500,7 +509,31 @@ class GCN_CAM_concat(nn.Module):
         return Adj_block.to(self.device)
 
 
+    def __preprocess_graphpool(self, batch_graph):
+        ###create sum or average pooling sparse matrix over entire nodes in each graph (num graphs x num nodes)
+
+        start_idx = [0]
+
+        #compute the padded neighbor list
+        for i, graph in enumerate(batch_graph):
+            start_idx.append(start_idx[i] + len(graph.g))
+
+        idx = []
+        elem = []
+        for i, graph in enumerate(batch_graph):
+            ###average pooling
+            elem.extend([1./len(graph.g)]*len(graph.g))
+
+            idx.extend([[i, j] for j in range(start_idx[i], start_idx[i+1], 1)])
+        elem = torch.FloatTensor(elem)
+        idx = torch.LongTensor(idx).transpose(0,1)
+        graph_pool = torch.sparse.FloatTensor(idx, elem, torch.Size([len(batch_graph), start_idx[-1]]))
+
+        return graph_pool.to(self.device)
+
+
     def forward(self, batch_graph):
+        graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         batch = []
         for i in range(len(batch_graph)):
@@ -536,14 +569,21 @@ class GCN_CAM_concat(nn.Module):
         h = self.bn4(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_mean_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
-        c_logit = self.linear(h)
+        # h = G.nn.global_mean_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        # c_logit = self.linear(h)
+
+        c_logit = 0
+        for layer, h in enumerate(hidden_rep):
+            pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
+            # c_logit += F.dropout(self.linears_prediction[layer](pooled_h), 0.5, training = self.training) # [32,2]
+            c_logit += self.linears_prediction[layer](pooled_h)
 
         return c_logit, c_logit
 
     def compute_saliency(self, batch_graph, cls):
         self.eval()
         assert len(batch_graph)==1
+        graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         X_concat.requires_grad_()
 
@@ -581,8 +621,14 @@ class GCN_CAM_concat(nn.Module):
         h = self.bn4(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_mean_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
-        c_logit = self.linear(h)
+        # h = G.nn.global_mean_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        # c_logit = self.linear(h)
+
+        c_logit = 0
+        for layer, h in enumerate(hidden_rep):
+            pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
+            # c_logit += F.dropout(self.linears_prediction[layer](pooled_h), 0.5, training = self.training) # [32,2]
+            c_logit += self.linears_prediction[layer](pooled_h)
 
         # predicting 0
         predicting_class = torch.zeros_like(c_logit).to(self.device)
@@ -612,17 +658,12 @@ class GIN_CAM(nn.Module):
         self.device = device
 
         ###List of MLPs
-        self.conv0 = G.nn.GINConv(nn.Sequential(nn.Linear(input_dim, 32), G.nn.BatchNorm(32), nn.ReLU(), nn.Linear(32, 32)), train_eps=True)
-        self.bn0 = G.nn.BatchNorm(32)
-        self.conv1 = G.nn.GINConv(nn.Sequential(nn.Linear(32, 32), G.nn.BatchNorm(32), nn.ReLU(), nn.Linear(32, 32)), train_eps=True)
-        self.bn1 = G.nn.BatchNorm(32)
-        self.conv2 = G.nn.GINConv(nn.Sequential(nn.Linear(32, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64)), train_eps=True)
-        self.bn2 = G.nn.BatchNorm(64)
-        self.conv3 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64)), train_eps=True)
-        self.bn3 = G.nn.BatchNorm(64)
-        self.conv4 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128)), train_eps=True)
-        self.bn4 = G.nn.BatchNorm(128)
-        self.linear = nn.Linear(128, 2)
+        self.conv0 = G.nn.GINConv(nn.Sequential(nn.Linear(input_dim, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU()), train_eps=True)
+        self.conv1 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU()), train_eps=True)
+        self.conv2 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU()), train_eps=True)
+        self.conv3 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU()), train_eps=True)
+        self.conv4 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU()), train_eps=True)
+        self.linear = nn.Linear(64, 2)
 
 
     def __preprocess_neighbors_sumavepool(self, batch_graph):
@@ -647,7 +688,30 @@ class GIN_CAM(nn.Module):
         return Adj_block.to(self.device)
 
 
+    def __preprocess_graphpool(self, batch_graph):
+        ###create sum or average pooling sparse matrix over entire nodes in each graph (num graphs x num nodes)
+
+        start_idx = [0]
+
+        #compute the padded neighbor list
+        for i, graph in enumerate(batch_graph):
+            start_idx.append(start_idx[i] + len(graph.g))
+
+        idx = []
+        elem = []
+        for i, graph in enumerate(batch_graph):
+            elem.extend([1]*len(graph.g))
+
+            idx.extend([[i, j] for j in range(start_idx[i], start_idx[i+1], 1)])
+        elem = torch.FloatTensor(elem)
+        idx = torch.LongTensor(idx).transpose(0,1)
+        graph_pool = torch.sparse.FloatTensor(idx, elem, torch.Size([len(batch_graph), start_idx[-1]]))
+
+        return graph_pool.to(self.device)
+
+
     def forward(self, batch_graph):
+        graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         batch = []
         for i in range(len(batch_graph)):
@@ -660,26 +724,18 @@ class GIN_CAM(nn.Module):
         h = X_concat
 
         h = self.conv0(h, edge_list)
-        h = self.bn0(h)
-        h = F.relu(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv1(h, edge_list)
-        h = self.bn1(h)
-        h = F.relu(h)
         h = self.conv2(h, edge_list)
-        h = self.bn2(h)
-        h = F.relu(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv3(h, edge_list)
-        h = self.bn3(h)
-        h = F.relu(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv4(h, edge_list)
-        h = self.bn4(h)
-        h = F.relu(h)
 
-        h = G.nn.global_add_pool(h, batch, len(batch_graph))
-        c_logit = self.linear(h)
+        # h = G.nn.global_add_pool(h, batch, len(batch_graph))
+        # c_logit = self.linear(h)
+        pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
+        c_logit = self.linear(pooled_h)
 
         return c_logit, c_logit
 
@@ -700,26 +756,18 @@ class GIN_CAM(nn.Module):
         h = X_concat
 
         h = self.conv0(h, edge_list)
-        h = self.bn0(h)
-        h = F.relu(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv1(h, edge_list)
-        h = self.bn1(h)
-        h = F.relu(h)
         h = self.conv2(h, edge_list)
-        h = self.bn2(h)
-        h = F.relu(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv3(h, edge_list)
-        h = self.bn3(h)
         h = F.dropout(h, 0.5, training=self.training)
-        h = F.relu(h)
         h = self.conv4(h, edge_list)
-        h = self.bn4(h)
-        h = F.relu(h)
 
-        h = G.nn.global_add_pool(h, batch, len(batch_graph))
-        c_logit = self.linear(h)
+        # h = G.nn.global_add_pool(h, batch, len(batch_graph))
+        # c_logit = self.linear(h)
+        pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
+        c_logit = self.linear(pooled_h)
 
         # predicting 0
         predicting_class = torch.zeros_like(c_logit).to(self.device)
@@ -748,19 +796,40 @@ class GIN_CAM_concat(nn.Module):
         super(GIN_CAM_concat, self).__init__()
 
         self.device = device
+        train_eps = True
 
         ###List of MLPs
-        self.conv0 = G.nn.GINConv(nn.Sequential(nn.Linear(input_dim, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64)), train_eps=True)
-        self.bn0 = G.nn.BatchNorm(64)
-        self.conv1 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64)), train_eps=True)
-        self.bn1 = G.nn.BatchNorm(64)
-        self.conv2 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64)), train_eps=True)
-        self.bn2 = G.nn.BatchNorm(64)
-        self.conv3 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 64), G.nn.BatchNorm(64), nn.ReLU(), nn.Linear(64, 64)), train_eps=True)
-        self.bn3 = G.nn.BatchNorm(64)
-        self.conv4 = G.nn.GINConv(nn.Sequential(nn.Linear(64, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128)), train_eps=True)
-        self.bn4 = G.nn.BatchNorm(128)
-        self.linear = nn.Linear(64+64+64+64+128, 2)
+        self.conv0 = G.nn.GINConv(nn.Sequential(nn.Linear(input_dim, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv1 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv2 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv3 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+        self.conv4 = G.nn.GINConv(nn.Sequential(nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU(), nn.Linear(128, 128), G.nn.BatchNorm(128), nn.ReLU()), train_eps=train_eps)
+
+        #Linear function that maps the hidden representation at dofferemt layers into a prediction score
+        self.linears_prediction = torch.nn.ModuleList()
+        for layer in range(5):
+            self.linears_prediction.append(nn.Linear(128, 2))
+
+    def __preprocess_graphpool(self, batch_graph):
+        ###create sum or average pooling sparse matrix over entire nodes in each graph (num graphs x num nodes)
+
+        start_idx = [0]
+
+        #compute the padded neighbor list
+        for i, graph in enumerate(batch_graph):
+            start_idx.append(start_idx[i] + len(graph.g))
+
+        idx = []
+        elem = []
+        for i, graph in enumerate(batch_graph):
+            elem.extend([1]*len(graph.g))
+
+            idx.extend([[i, j] for j in range(start_idx[i], start_idx[i+1], 1)])
+        elem = torch.FloatTensor(elem)
+        idx = torch.LongTensor(idx).transpose(0,1)
+        graph_pool = torch.sparse.FloatTensor(idx, elem, torch.Size([len(batch_graph), start_idx[-1]]))
+
+        return graph_pool.to(self.device)
 
 
     def __preprocess_neighbors_sumavepool(self, batch_graph):
@@ -786,6 +855,7 @@ class GIN_CAM_concat(nn.Module):
 
 
     def forward(self, batch_graph):
+        graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         batch = []
         for i in range(len(batch_graph)):
@@ -799,35 +869,33 @@ class GIN_CAM_concat(nn.Module):
         h = X_concat
 
         h = self.conv0(h, edge_list)
-        h = self.bn0(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv1(h, edge_list)
-        h = self.bn1(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = self.conv2(h, edge_list)
-        h = self.bn2(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv3(h, edge_list)
-        h = self.bn3(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv4(h, edge_list)
-        h = self.bn4(h)
-        h = F.relu(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_add_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
-        c_logit = self.linear(h)
+        # h = G.nn.global_add_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
+        # h = F.dropout(h, 0.5, training=self.training)
+        # c_logit = self.linear(h)
+
+        c_logit = 0
+        for layer, h in enumerate(hidden_rep):
+            pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
+            # c_logit += F.dropout(self.linears_prediction[layer](pooled_h), 0.5, training = self.training) # [32,2]
+            c_logit += self.linears_prediction[layer](pooled_h)
 
         return c_logit, c_logit
 
     def compute_saliency(self, batch_graph, cls):
+        graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
         self.eval()
         assert len(batch_graph)==1
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
@@ -845,31 +913,24 @@ class GIN_CAM_concat(nn.Module):
         h = X_concat
 
         h = self.conv0(h, edge_list)
-        h = self.bn0(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv1(h, edge_list)
-        h = self.bn1(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = self.conv2(h, edge_list)
-        h = self.bn2(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv3(h, edge_list)
-        h = self.bn3(h)
-        h = F.relu(h)
         hidden_rep.append(h)
         h = F.dropout(h, 0.5, training=self.training)
         h = self.conv4(h, edge_list)
-        h = self.bn4(h)
-        h = F.relu(h)
         hidden_rep.append(h)
 
-        h = G.nn.global_add_pool(torch.cat(hidden_rep, 1), batch, len(batch_graph))
-        c_logit = self.linear(h)
+        c_logit = 0
+        for layer, h in enumerate(hidden_rep):
+            pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
+            # c_logit += F.dropout(self.linears_prediction[layer](pooled_h), 0.5, training = self.training) # [32,2]
+            c_logit += self.linears_prediction[layer](pooled_h)
 
         # predicting 0
         predicting_class = torch.zeros_like(c_logit).to(self.device)
