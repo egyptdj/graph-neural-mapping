@@ -196,7 +196,7 @@ def main():
 
     train_summary_writer = SummaryWriter('results/{}/summary/{}/train'.format(args.exp, args.fold_idx), flush_secs=1, max_queue=1)
     test_summary_writer = SummaryWriter('results/{}/summary/{}/test'.format(args.exp, args.fold_idx), flush_secs=1, max_queue=1)
-    with open('results/{}/argv.csv'.format(args.exp), 'a', newline='') as f:
+    with open('results/{}/argv.csv'.format(args.exp), 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
@@ -226,7 +226,7 @@ def main():
         test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
         test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
         test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
-        with open('results/{}/csv/{}/test_sequence.csv'.format(args.exp, args.fold_idx), 'w') as f:
+        with open('results/{}/csv/{}/test_sequence.csv'.format(args.exp, args.fold_idx), 'a') as f:
             f.write(','.join([str(args.fold_idx), str(acc_test), str(precision_test), str(recall_test)]))
             f.write('\n')
         if acc_test > acc_test_early:
