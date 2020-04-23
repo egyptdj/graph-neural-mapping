@@ -24,6 +24,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
     total_iters = args.iters_per_epoch
     # pbar = tqdm(range(total_iters), unit='batch')
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
 
     loss_accum = 0
     for pos in range(total_iters):
@@ -50,6 +51,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            # scheduler.step()
 
 
         loss = loss.detach().cpu().numpy()
@@ -120,7 +122,9 @@ def main():
     parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training')
     parser.add_argument('--iters_per_epoch', type=int, default=50, help='number of iterations per each epoch')
     parser.add_argument('--epochs', type=int, default=150, help='number of epochs to train')
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--lr', type=float, default=0.01, help='initial learning rate')
+    parser.add_argument('--lr_step', type=int, default=5, help='learning rate decay step')
+    parser.add_argument('--lr_rate', type=float, default=0.8, help='learning rate decay rate')
     parser.add_argument('--seed', type=int, default=0, help='random seed for splitting the dataset')
     parser.add_argument('--fold_idx', type=int, default=0, help='the index of fold in 10-fold validation.')
     parser.add_argument('--num_layers', type=int, default=5, help='number of the GNN layers')
@@ -185,7 +189,7 @@ def main():
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.8)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
 
     train_summary_writer = SummaryWriter('results/{}/summary/train'.format(args.exp), flush_secs=1, max_queue=1)
     test_summary_writer = SummaryWriter('results/{}/summary/test'.format(args.exp), flush_secs=1, max_queue=1)
@@ -256,7 +260,9 @@ def main():
 
     with open('results/{}/csv/result.csv'.format(args.exp), 'w') as f:
         f.write(','.join(['epoch', 'accuracy', 'precision', 'recall']))
+        f.write("\n")
         f.write(','.join([str(args.epochs), str(acc_test), str(precision_test), str(recall_test)]))
+        f.write("\n")
         f.write(','.join([str(epoch_early), str(acc_test), str(precision_test), str(recall_test)]))
         f.write("\n")
 

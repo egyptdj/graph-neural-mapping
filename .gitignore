@@ -106,4 +106,4 @@ venv.bak/
 data/
 results/
 run_*
-models/__pycache__/
+models/__pycache__/*

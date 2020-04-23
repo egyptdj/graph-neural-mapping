@@ -220,19 +220,19 @@ class GIN_InfoMaxReg(nn.Module):
             if self.neighbor_pooling_type == "max" and self.learn_eps:
                 h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
                 if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
+                    h = F.dropout(h, 0.2, training=self.training)
             elif not self.neighbor_pooling_type == "max" and self.learn_eps:
                 h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
                 if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
+                    h = F.dropout(h, 0.2, training=self.training)
             elif self.neighbor_pooling_type == "max" and not self.learn_eps:
                 h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
                 if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
+                    h = F.dropout(h, 0.2, training=self.training)
             elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
                 h = self.next_layer(h, layer, Adj_block = Adj_block)
                 if layer in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
+                    h = F.dropout(h, 0.2, training=self.training)
 
             hidden_rep.append(h) # [[557,7],[557,64]x4]
 
