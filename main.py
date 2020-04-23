@@ -21,7 +21,6 @@ d_criterion = nn.BCEWithLogitsLoss()
 
 def train(args, model, device, train_graphs, optimizer, beta, epoch):
     model.train()
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
 
     total_iters = args.iters_per_epoch
     # pbar = tqdm(range(total_iters), unit='batch')
@@ -51,7 +50,6 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            scheduler.step()
 
 
         loss = loss.detach().cpu().numpy()
@@ -187,6 +185,7 @@ def main():
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.8)
 
     train_summary_writer = SummaryWriter('results/{}/summary/train'.format(args.exp), flush_secs=1, max_queue=1)
     test_summary_writer = SummaryWriter('results/{}/summary/test'.format(args.exp), flush_secs=1, max_queue=1)
@@ -195,14 +194,19 @@ def main():
         writer.writerows(vars(args).items())
 
     if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
-        initial_latent_space, labels = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/initial_latent_space.npy'.format(args.exp), initial_latent_space)
+        latent_space_initial, labels = get_latent_space(model, test_graphs)
+        np.save('results/{}/latent/latent_space_initial.npy'.format(args.exp), latent_space_initial)
         np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
-        del initial_latent_space
+        del latent_space_initial
         del labels
 
+    acc_test_early = 0.0
+    precision_test_early = 0.0
+    recall_test_early = 0.0
+    epoch_early = 0
     for epoch in range(args.epochs):
         loss_train = train(args, model, device, train_graphs, optimizer, args.beta, epoch)
+        scheduler.step()
         acc_train,  precision_train, recall_train, = test(args, model, device, train_graphs)
 
         train_summary_writer.add_scalar('loss/total', loss_train, epoch)
@@ -211,9 +215,30 @@ def main():
         train_summary_writer.add_scalar('metrics/recall', recall_train, epoch)
         if epoch%25==0: torch.save(model.state_dict(), 'results/{}/model/model.pt'.format(args.exp))
         print ('EPOCH [{:3d}] TRAIN_LOSS [{:.3f}] ACC [{:.4f}] P [{:.4f}] R [{:.4f}]'.format(epoch, loss_train, acc_train, precision_train, recall_train))
+        acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
+        test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
+        test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
+        test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
+        if acc_test > acc_test_early:
+            print('top test acc: {:.4f}'.format(acc_test))
+            acc_test_early = acc_test
+            precision_test_early = precision_test
+            recall_test_early = recall_test
+            epoch_early = epoch
+            torch.save(model.state_dict(), 'results/{}/model/model_early.pt'.format(args.exp))
+            if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
+                latent_space_early, labels = get_latent_space(model, test_graphs)
+                saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
+                saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+                np.save('results/{}/latent/latent_space_early.npy'.format(args.exp), latent_space_early)
+                np.save('results/{}/saliency/saliency_female_early.npy'.format(args.exp), saliency_map_0_early)
+                np.save('results/{}/saliency/saliency_male_early.npy'.format(args.exp), saliency_map_1_early)
+                del latent_space_early
+                del saliency_map_0_early
+                del saliency_map_1_early
 
-    acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
     print([acc_test, precision_test, recall_test])
+    print([acc_test_early, precision_test_early, recall_test_early])
 
     test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
     test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
@@ -227,10 +252,12 @@ def main():
 
     if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         final_latent_space, _ = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/final_latent_space.npy'.format(args.exp), final_latent_space)
+        np.save('results/{}/latent/latent_space_final.npy'.format(args.exp), final_latent_space)
 
     with open('results/{}/csv/result.csv'.format(args.exp), 'w') as f:
-        f.write(','.join([str(acc_test), str(precision_test), str(recall_test)]))
+        f.write(','.join(['epoch', 'accuracy', 'precision', 'recall']))
+        f.write(','.join([str(args.epochs), str(acc_test), str(precision_test), str(recall_test)]))
+        f.write(','.join([str(epoch_early), str(acc_test), str(precision_test), str(recall_test)]))
         f.write("\n")
 
 if __name__ == '__main__':
