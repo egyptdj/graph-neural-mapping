@@ -126,6 +126,7 @@ def main():
     parser.add_argument('--lr_step', type=int, default=5, help='learning rate decay step')
     parser.add_argument('--lr_rate', type=float, default=0.8, help='learning rate decay rate')
     parser.add_argument('--seed', type=int, default=0, help='random seed for splitting the dataset')
+    parser.add_argument('--fold_seed', type=int, default=0, help='random seed for splitting the dataset')
     parser.add_argument('--fold_idx', type=int, default=0, help='the index of fold in 10-fold validation.')
     parser.add_argument('--num_layers', type=int, default=5, help='number of the GNN layers')
     parser.add_argument('--num_mlp_layers', type=int, default=2, help='number of layers for the MLP. 1 means linear model.')
@@ -154,11 +155,11 @@ def main():
     args = parser.parse_args()
 
     #set up seeds and gpu device
-    torch.manual_seed(0)
-    np.random.seed(0)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
     if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(0)
+        torch.cuda.manual_seed_all(args.seed)
 
     os.makedirs('results/{}/saliency/{}'.format(args.exp, args.fold_idx), exist_ok=True)
     os.makedirs('results/{}/latent/{}'.format(args.exp, args.fold_idx), exist_ok=True)
@@ -171,7 +172,7 @@ def main():
     num_classes = 2
 
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
-    train_graphs, test_graphs = separate_data(graphs, args.seed, args.fold_idx)
+    train_graphs, test_graphs = separate_data(graphs, args.fold_seed, args.fold_idx)
 
     if args.gcn_cheb:
         model = GCN_CAM_Chebconv(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
@@ -269,7 +270,7 @@ def main():
         f.write("\n")
         f.write(','.join([str(args.fold_idx), str(args.epochs), str(acc_test), str(precision_test), str(recall_test)]))
         f.write("\n")
-        f.write(','.join([str(args.fold_idx), str(epoch_early), str(acc_test), str(precision_test), str(recall_test)]))
+        f.write(','.join([str(args.fold_idx), str(epoch_early), str(acc_test_early), str(precision_test_early), str(recall_test_early)]))
         f.write("\n")
 
 if __name__ == '__main__':
