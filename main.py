@@ -35,7 +35,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
 
-        if args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat:
+        if args.gcn or args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat:
             d_loss = 0.0
         else:
             d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
@@ -143,6 +143,7 @@ def main():
     parser.add_argument('--run', type = str, default = "REST1_RL", help='HCP run to use', choices=['REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'])
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
+    parser.add_argument('--gcn', action='store_true', help='test the model with gcn')
     parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn baseline')
     parser.add_argument('--gcn_baseline', action='store_true', help='test the model with gcn baseline')
     parser.add_argument('--gcn_dgi', action='store_true', help='test the model with gcn baseline')
@@ -159,11 +160,10 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
 
-    os.makedirs('results/{}/saliency'.format(args.exp), exist_ok=True)
-    os.makedirs('results/{}/latent'.format(args.exp), exist_ok=True)
-    os.makedirs('results/{}/model'.format(args.exp), exist_ok=True)
-    os.makedirs('results/{}/data'.format(args.exp), exist_ok=True)
-    os.makedirs('results/{}/csv'.format(args.exp), exist_ok=True)
+    os.makedirs('results/{}/saliency/{}'.format(args.exp, args.fold_idx), exist_ok=True)
+    os.makedirs('results/{}/latent/{}'.format(args.exp, args.fold_idx), exist_ok=True)
+    os.makedirs('results/{}/model/{}'.format(args.exp, args.fold_idx), exist_ok=True)
+    os.makedirs('results/{}/csv/{}'.format(args.exp, args.fold_idx), exist_ok=True)
 
     # graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
     # torch.save(graphs, 'data/graphs.pt')
@@ -175,6 +175,8 @@ def main():
 
     if args.gcn_cheb:
         model = GCN_CAM_Chebconv(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    elif args.gcn:
+        model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, [0,2,3], False, 'average', 'average', device).to(device)
     elif args.gcn_baseline:
         model = GCN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
     elif args.gcn_concat:
@@ -188,19 +190,20 @@ def main():
     else:
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
+    print (model)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
 
-    train_summary_writer = SummaryWriter('results/{}/summary/train'.format(args.exp), flush_secs=1, max_queue=1)
-    test_summary_writer = SummaryWriter('results/{}/summary/test'.format(args.exp), flush_secs=1, max_queue=1)
-    with open('results/{}/argv.csv'.format(args.exp), 'w', newline='') as f:
+    train_summary_writer = SummaryWriter('results/{}/summary/{}/train'.format(args.exp, args.fold_idx), flush_secs=1, max_queue=1)
+    test_summary_writer = SummaryWriter('results/{}/summary/{}/test'.format(args.exp, args.fold_idx), flush_secs=1, max_queue=1)
+    with open('results/{}/argv.csv'.format(args.exp), 'a', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
     if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         latent_space_initial, labels = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/latent_space_initial.npy'.format(args.exp), latent_space_initial)
-        np.save('results/{}/latent/labels.npy'.format(args.exp), labels)
+        np.save('results/{}/latent/{}/latent_space_initial.npy'.format(args.exp, args.fold_idx), latent_space_initial)
+        np.save('results/{}/latent/{}/labels.npy'.format(args.exp, args.fold_idx), labels)
         del latent_space_initial
         del labels
 
@@ -217,26 +220,29 @@ def main():
         train_summary_writer.add_scalar('metrics/accuracy', acc_train, epoch)
         train_summary_writer.add_scalar('metrics/precision', precision_train, epoch)
         train_summary_writer.add_scalar('metrics/recall', recall_train, epoch)
-        if epoch%25==0: torch.save(model.state_dict(), 'results/{}/model/model.pt'.format(args.exp))
+        if epoch%25==0: torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, args.fold_idx))
         print ('EPOCH [{:3d}] TRAIN_LOSS [{:.3f}] ACC [{:.4f}] P [{:.4f}] R [{:.4f}]'.format(epoch, loss_train, acc_train, precision_train, recall_train))
         acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
         test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
         test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
         test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
+        with open('results/{}/csv/{}/test_sequence.csv'.format(args.exp, args.fold_idx), 'w') as f:
+            f.write(','.join([str(args.fold_idx), str(acc_test), str(precision_test), str(recall_test)]))
+            f.write('\n')
         if acc_test > acc_test_early:
             print('top test acc: {:.4f}'.format(acc_test))
             acc_test_early = acc_test
             precision_test_early = precision_test
             recall_test_early = recall_test
             epoch_early = epoch
-            torch.save(model.state_dict(), 'results/{}/model/model_early.pt'.format(args.exp))
+            torch.save(model.state_dict(), 'results/{}/model/{}/model_early.pt'.format(args.exp, args.fold_idx))
             if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
                 latent_space_early, labels = get_latent_space(model, test_graphs)
                 saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
                 saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
-                np.save('results/{}/latent/latent_space_early.npy'.format(args.exp), latent_space_early)
-                np.save('results/{}/saliency/saliency_female_early.npy'.format(args.exp), saliency_map_0_early)
-                np.save('results/{}/saliency/saliency_male_early.npy'.format(args.exp), saliency_map_1_early)
+                np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, args.fold_idx), latent_space_early)
+                np.save('results/{}/saliency/{}/saliency_female_early.npy'.format(args.exp, args.fold_idx), saliency_map_0_early)
+                np.save('results/{}/saliency/{}/saliency_male_early.npy'.format(args.exp, args.fold_idx), saliency_map_1_early)
                 del latent_space_early
                 del saliency_map_0_early
                 del saliency_map_1_early
@@ -247,23 +253,23 @@ def main():
     test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
     test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
     test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
-    torch.save(model.state_dict(), 'results/{}/model/model.pt'.format(args.exp))
+    torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, args.fold_idx))
 
     saliency_map_0 = get_saliency_map(model, test_graphs, 0)
     saliency_map_1 = get_saliency_map(model, test_graphs, 1)
-    np.save('results/{}/saliency/saliency_female.npy'.format(args.exp), saliency_map_0)
-    np.save('results/{}/saliency/saliency_male.npy'.format(args.exp), saliency_map_1)
+    np.save('results/{}/saliency/{}/saliency_female.npy'.format(args.exp, args.fold_idx), saliency_map_0)
+    np.save('results/{}/saliency/{}/saliency_male.npy'.format(args.exp, args.fold_idx), saliency_map_1)
 
     if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
         final_latent_space, _ = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/latent_space_final.npy'.format(args.exp), final_latent_space)
+        np.save('results/{}/latent/{}/latent_space_final.npy'.format(args.exp, args.fold_idx), final_latent_space)
 
-    with open('results/{}/csv/result.csv'.format(args.exp), 'w') as f:
-        f.write(','.join(['epoch', 'accuracy', 'precision', 'recall']))
+    with open('results/{}/csv/{}/result.csv'.format(args.exp, args.fold_idx), 'w') as f:
+        f.write(','.join(['fold','epoch', 'accuracy', 'precision', 'recall']))
         f.write("\n")
-        f.write(','.join([str(args.epochs), str(acc_test), str(precision_test), str(recall_test)]))
+        f.write(','.join([str(args.fold_idx), str(args.epochs), str(acc_test), str(precision_test), str(recall_test)]))
         f.write("\n")
-        f.write(','.join([str(epoch_early), str(acc_test), str(precision_test), str(recall_test)]))
+        f.write(','.join([str(args.fold_idx), str(epoch_early), str(acc_test), str(precision_test), str(recall_test)]))
         f.write("\n")
 
 if __name__ == '__main__':
