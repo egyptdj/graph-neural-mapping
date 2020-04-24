@@ -36,7 +36,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
 
-        if args.gcn or args.gcn_cheb or args.gcn_baseline or args.gcn_concat or args.gin_baseline or args.gin_concat:
+        if args.gcn:
             d_loss = 0.0
         else:
             d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
@@ -186,12 +186,11 @@ def main():
         writer = csv.writer(f)
         writer.writerows(vars(args).items())
 
-    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
-        latent_space_initial, labels = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/{}/latent_space_initial.npy'.format(args.exp, args.fold_idx), latent_space_initial)
-        np.save('results/{}/latent/{}/labels.npy'.format(args.exp, args.fold_idx), labels)
-        del latent_space_initial
-        del labels
+    latent_space_initial, labels = get_latent_space(model, test_graphs)
+    np.save('results/{}/latent/{}/latent_space_initial.npy'.format(args.exp, args.fold_idx), latent_space_initial)
+    np.save('results/{}/latent/{}/labels.npy'.format(args.exp, args.fold_idx), labels)
+    del latent_space_initial
+    del labels
 
     acc_test_early = 0.0
     precision_test_early = 0.0
@@ -222,16 +221,16 @@ def main():
             recall_test_early = recall_test
             epoch_early = epoch
             torch.save(model.state_dict(), 'results/{}/model/{}/model_early.pt'.format(args.exp, args.fold_idx))
-            if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
-                latent_space_early, labels = get_latent_space(model, test_graphs)
-                saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
-                saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
-                np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, args.fold_idx), latent_space_early)
-                np.save('results/{}/saliency/{}/saliency_female_early.npy'.format(args.exp, args.fold_idx), saliency_map_0_early)
-                np.save('results/{}/saliency/{}/saliency_male_early.npy'.format(args.exp, args.fold_idx), saliency_map_1_early)
-                del latent_space_early
-                del saliency_map_0_early
-                del saliency_map_1_early
+            
+            latent_space_early, labels = get_latent_space(model, test_graphs)
+            saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
+            saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+            np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, args.fold_idx), latent_space_early)
+            np.save('results/{}/saliency/{}/saliency_female_early.npy'.format(args.exp, args.fold_idx), saliency_map_0_early)
+            np.save('results/{}/saliency/{}/saliency_male_early.npy'.format(args.exp, args.fold_idx), saliency_map_1_early)
+            del latent_space_early
+            del saliency_map_0_early
+            del saliency_map_1_early
 
     print([acc_test, precision_test, recall_test])
     print([acc_test_early, precision_test_early, recall_test_early])
@@ -246,9 +245,8 @@ def main():
     np.save('results/{}/saliency/{}/saliency_female.npy'.format(args.exp, args.fold_idx), saliency_map_0)
     np.save('results/{}/saliency/{}/saliency_male.npy'.format(args.exp, args.fold_idx), saliency_map_1)
 
-    if not (args.gcn_cheb or args.gcn_baseline or args.gcn_dgi or args.gcn_concat or args.gin_baseline or args.gin_concat or args.gin_concat_dgi):
-        final_latent_space, _ = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/{}/latent_space_final.npy'.format(args.exp, args.fold_idx), final_latent_space)
+    final_latent_space, _ = get_latent_space(model, test_graphs)
+    np.save('results/{}/latent/{}/latent_space_final.npy'.format(args.exp, args.fold_idx), final_latent_space)
 
     with open('results/{}/csv/{}/result.csv'.format(args.exp, args.fold_idx), 'w') as f:
         f.write(','.join(['fold','epoch', 'accuracy', 'precision', 'recall']))
