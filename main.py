@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from util import load_data, separate_data
 from models.graphcnn import *
+from models.initializer import *
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -137,6 +138,7 @@ def main():
     parser.add_argument('--dropout_layers', nargs='+', default=[], help='layers to apply dropout')
     parser.add_argument('--graph_pooling_type', type=str, default="sum", choices=["sum", "average"], help='Pooling for over nodes in a graph: sum or average')
     parser.add_argument('--neighbor_pooling_type', type=str, default="sum", choices=["sum", "average", "max"], help='Pooling for over neighboring nodes: sum, average or max')
+    parser.add_argument('--initializer', type=str, default=None, choices=["normal", "xavier", "kaiming", "orthogonal"], help='initializer of the model')
     parser.add_argument('--learn_eps', action="store_true", help='whether to learn the epsilon weighting for the center nodes. Does not affect training accuracy though.')
     parser.add_argument('--exp', type = str, default = "graph_neural_mapping", help='experiment name')
     parser.add_argument('--input_feature', type=str, default='one_hot', help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'timeseries_bold'])
@@ -145,13 +147,6 @@ def main():
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
     parser.add_argument('--gcn', action='store_true', help='test the model with gcn')
-    parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn baseline')
-    parser.add_argument('--gcn_baseline', action='store_true', help='test the model with gcn baseline')
-    parser.add_argument('--gcn_dgi', action='store_true', help='test the model with gcn baseline')
-    parser.add_argument('--gcn_concat', action='store_true', help='test the model with gcn concat')
-    parser.add_argument('--gin_baseline', action='store_true', help='test the model with gin baseline')
-    parser.add_argument('--gin_concat', action='store_true', help='test the model with gin concat')
-    parser.add_argument('--gin_concat_dgi', action='store_true', help='test the model with gin concat')
     args = parser.parse_args()
 
     #set up seeds and gpu device
@@ -174,22 +169,13 @@ def main():
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
     train_graphs, test_graphs = separate_data(graphs, args.fold_seed, args.fold_idx)
 
-    if args.gcn_cheb:
-        model = GCN_CAM_Chebconv(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
-    elif args.gcn:
-        model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, [0,2,3], False, 'average', 'average', device).to(device)
-    elif args.gcn_baseline:
-        model = GCN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
-    elif args.gcn_concat:
-        model = GCN_CAM_concat(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
-    elif args.gin_baseline:
-        model = GIN_CAM(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
-    elif args.gin_concat:
-        model = GIN_CAM_concat(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
-    elif args.gin_concat_dgi:
-        model = GIN_CAM_concat_infomaxreg(train_graphs[0].node_features.shape[1], num_classes, device).to(device)
+    if args.gcn:
+        model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, 0.0, [0,2,3], False, 'average', 'average', device).to(device)
     else:
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
+
+    if args.initializer:
+        init_weights(model, init_type=args.initializer, init_gain=0.02)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
