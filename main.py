@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from util import load_data, separate_data
 from models.graphcnn import *
+from models.initializer import *
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -131,12 +132,13 @@ def main():
     parser.add_argument('--num_layers', type=int, default=5, help='number of the GNN layers')
     parser.add_argument('--num_mlp_layers', type=int, default=2, help='number of layers for the MLP. 1 means linear model.')
     parser.add_argument('--hidden_dim', type=int, default=64, help='number of hidden units')
-    parser.add_argument('--beta', type=float, default=0.1, help='coefficient of infograph regularizer')
+    parser.add_argument('--beta', type=float, default=0.05, help='coefficient of infograph regularizer')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='coefficient of l2 weight decay regularizer')
     parser.add_argument('--final_dropout', type=float, default=0.5, help='final layer dropout')
     parser.add_argument('--dropout_layers', nargs='+', default=[], help='layers to apply dropout')
     parser.add_argument('--graph_pooling_type', type=str, default="sum", choices=["sum", "average"], help='Pooling for over nodes in a graph: sum or average')
     parser.add_argument('--neighbor_pooling_type', type=str, default="sum", choices=["sum", "average", "max"], help='Pooling for over neighboring nodes: sum, average or max')
+    parser.add_argument('--initializer', type=str, default=None, choices=["normal", "xavier", "kaiming", "orthogonal"], help='initializer of the model')
     parser.add_argument('--learn_eps', action="store_true", help='whether to learn the epsilon weighting for the center nodes. Does not affect training accuracy though.')
     parser.add_argument('--exp', type = str, default = "graph_neural_mapping", help='experiment name')
     parser.add_argument('--input_feature', type=str, default='one_hot', help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'timeseries_bold'])
@@ -191,7 +193,9 @@ def main():
     else:
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
-    print (model)
+    if args.initializer:
+        init_weights(model, init_type=args.initializer, init_gain=0.02)
+
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
 
