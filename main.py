@@ -131,7 +131,7 @@ def main():
     parser.add_argument('--num_layers', type=int, default=5, help='number of the GNN layers')
     parser.add_argument('--num_mlp_layers', type=int, default=2, help='number of layers for the MLP. 1 means linear model.')
     parser.add_argument('--hidden_dim', type=int, default=64, help='number of hidden units')
-    parser.add_argument('--beta', type=float, default=0.1, help='coefficient of infograph regularizer')
+    parser.add_argument('--beta', type=float, default=0.05, help='coefficient of infograph regularizer')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='coefficient of l2 weight decay regularizer')
     parser.add_argument('--final_dropout', type=float, default=0.5, help='final layer dropout')
     parser.add_argument('--dropout_layers', nargs='+', default=[], help='layers to apply dropout')
@@ -191,7 +191,6 @@ def main():
     else:
         model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
-    print (model)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
 
