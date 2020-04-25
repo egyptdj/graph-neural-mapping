@@ -19,10 +19,10 @@ def main():
     labels = []
 
     for current_fold in opt.fold_idx:
-        latent_space_initial.append(np.load(os.path.join(opt.expdir, 'latent', current_fold, 'latent_space_initial.npy')))
-        latent_space_early.append(np.load(os.path.join(opt.expdir, 'latent', current_fold, 'latent_space_early.npy')))
-        latent_space_final.append(np.load(os.path.join(opt.expdir, 'latent', current_fold, 'latent_space_final.npy')))
-        labels.append(np.load(os.path.join(opt.expdir, 'latent', current_fold, 'labels.npy')).squeeze())
+        latent_space_initial.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'latent_space_initial.npy')))
+        latent_space_early.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'latent_space_early.npy')))
+        latent_space_final.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'latent_space_final.npy')))
+        labels.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'labels.npy')).squeeze())
 
     initial_silhouette = []
     early_silhouette = []

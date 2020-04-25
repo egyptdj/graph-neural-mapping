@@ -1,4 +1,5 @@
 import os
+import argparse
 import numpy as np
 import pandas as pd
 
@@ -17,8 +18,8 @@ def main():
     early = {'accuracy':[], 'precision':[], 'recall':[]}
     epoch = {'accuracy':[], 'precision':[], 'recall':[]}
     for current_fold in opt.fold_idx:
-        performance_table = pd.read_csv(os.path.join(opt.expdir, 'csv', current_fold, 'result.csv'))[['accuracy', 'precision', 'recall']]
-        performance_per_epochs = pd.read_csv(os.path.join(opt.expdir, 'csv', current_fold, 'test_sequence.csv'), header=None)[[1,2,3]]
+        performance_table = pd.read_csv(os.path.join(opt.expdir, 'csv', str(current_fold), 'result.csv'))[['accuracy', 'precision', 'recall']]
+        performance_per_epochs = pd.read_csv(os.path.join(opt.expdir, 'csv', str(current_fold), 'test_sequence.csv'), header=None)[[1,2,3]]
 
         final['accuracy'].append(performance_table.iloc[0]['accuracy'])
         final['precision'].append(performance_table.iloc[0]['precision'])
@@ -26,9 +27,9 @@ def main():
         early['accuracy'].append(performance_table.iloc[1]['accuracy'])
         early['precision'].append(performance_table.iloc[1]['precision'])
         early['recall'].append(performance_table.iloc[1]['recall'])
-        epoch['accuracy'].append(performance_per_epochs[0].to_list())
-        epoch['precision'].append(performance_per_epochs[1].to_list())
-        epoch['recall'].append(performance_per_epochs[2].to_list())
+        epoch['accuracy'].append(performance_per_epochs[1].to_list())
+        epoch['precision'].append(performance_per_epochs[2].to_list())
+        epoch['recall'].append(performance_per_epochs[3].to_list())
 
     final_accuracy = np.mean(final['accuracy'])
     final_precision = np.mean(final['precision'])
@@ -36,9 +37,9 @@ def main():
     early_accuracy = np.mean(early['accuracy'])
     early_precision = np.mean(early['precision'])
     early_recall = np.mean(early['recall'])
-    epoch_accuracy = np.max(np.mean(np.asarray(epoch['accuracy'])), axis=1)
-    epoch_precision = np.max(np.mean(np.asarray(epoch['precision'])), axis=1)
-    epoch_recall = np.max(np.mean(np.asarray(epoch['recall'])), axis=1)
+    epoch_accuracy = np.max(np.mean(np.asarray(epoch['accuracy']), axis=0))
+    epoch_precision = np.max(np.mean(np.asarray(epoch['precision']), axis=0))
+    epoch_recall = np.max(np.mean(np.asarray(epoch['recall']), axis=0))
 
     with open(os.path.join(opt.expdir, opt.savedir, 'result_summary.csv'), 'w') as f:
         f.write(','.join(['method', 'accuracy', 'precision', 'recall']))

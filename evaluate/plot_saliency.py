@@ -19,10 +19,8 @@ def main():
     saliency1 = []
 
     for current_fold in opt.fold_idx:
-        saliency0.append(np.load(os.path.join(opt.expdir, 'saliency', current_fold, 'saliency_female.npy')))
-        saliency1.append(np.load(os.path.join(opt.expdir, 'saliency', current_fold, 'saliency_male.npy')))
-        # saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
-        # saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
+        saliency0.append(np.load(os.path.join(opt.expdir, 'saliency', str(current_fold), 'saliency_female.npy')))
+        saliency1.append(np.load(os.path.join(opt.expdir, 'saliency', str(current_fold), 'saliency_male.npy')))
 
     saliency0 = np.diagonal(np.concatenate(saliency0, 0), axis1=1, axis2=2)
     saliency1 = np.diagonal(np.concatenate(saliency1, 0), axis1=1, axis2=2)
