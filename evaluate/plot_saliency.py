@@ -6,20 +6,21 @@ import nibabel as nib
 
 def main():
     parser = argparse.ArgumentParser(description='Plot the saliency map in the nifti format')
-    parser.add_argument('--datadir', nargs='+', default=None, help='path containing the saliency0.npy and the saliency1.npy')
+    parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the saliency_female.npy and the saliency_male.npy')
     parser.add_argument('--roidir', type=str, default='data/roi/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz', help='path containing the used ROI file')
-    parser.add_argument('--savedir', type=str, default='./saliency_nii', help='path to save the saliency nii files')
+    parser.add_argument('--savedir', type=str, default='saliency_nii', help='path to save the saliency nii files within the expdir')
+    parser.add_argument('--fold_idx', nargs='+', default=[0,1,2,3,4,5,6,7,8,9], help='fold indices')
 
     opt = parser.parse_args()
 
-    os.makedirs(opt.savedir, exist_ok=True)
+    os.makedirs(os.path.join(opt.savedir, opt.savedir), exist_ok=True)
 
     saliency0 = []
     saliency1 = []
 
-    for dir in opt.datadir:
-        saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
-        saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
+    for current_fold in opt.fold_idx:
+        saliency0.append(np.load(os.path.join(opt.expdir, 'saliency', current_fold, 'saliency_female.npy')))
+        saliency1.append(np.load(os.path.join(opt.expdir, 'saliency', current_fold, 'saliency_male.npy')))
         # saliency0.append(np.load(os.path.join(dir, 'saliency_female.npy')))
         # saliency1.append(np.load(os.path.join(dir, 'saliency_male.npy')))
 
@@ -89,20 +90,20 @@ def main():
             saliency1_rois.append(str(roi))
             saliency1_values.append(str(value))
 
-    with open(os.path.join(opt.savedir, 'saliency_female.csv'), 'w') as f:
+    with open(os.path.join(opt.expdir, opt.savedir, 'saliency_female.csv'), 'w') as f:
         f.write(','.join(saliency0_rois))
         f.write("\n")
         f.write(','.join(saliency0_values))
 
-    with open(os.path.join(opt.savedir, 'saliency_male.csv'), 'w') as f:
+    with open(os.path.join(opt.expdir, opt.savedir, 'saliency_male.csv'), 'w') as f:
         f.write(','.join(saliency1_rois))
         f.write("\n")
         f.write(','.join(saliency1_values))
 
-    nib.save(saliency0img, os.path.join(opt.savedir, 'saliency_female.nii'))
-    nib.save(saliency1img, os.path.join(opt.savedir, 'saliency_male.nii'))
-    nib.save(saliency0img_normalized, os.path.join(opt.savedir, 'saliency_normalized_female.nii'))
-    nib.save(saliency1img_normalized, os.path.join(opt.savedir, 'saliency_normalized_male.nii'))
+    nib.save(saliency0img, os.path.join(opt.expdir, opt.savedir, 'saliency_female.nii'))
+    nib.save(saliency1img, os.path.join(opt.expdir, opt.savedir, 'saliency_male.nii'))
+    nib.save(saliency0img_normalized, os.path.join(opt.expdir, opt.savedir, 'saliency_normalized_female.nii'))
+    nib.save(saliency1img_normalized, os.path.join(opt.expdir, opt.savedir, 'saliency_normalized_male.nii'))
 
 if __name__ == '__main__':
     main()
