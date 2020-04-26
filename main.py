@@ -171,12 +171,12 @@ def main():
         train_graphs, test_graphs = separate_data(graphs, args.fold_seed, current_fold)
 
         if args.gcn:
-            model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, 0.0, [0,2,3], False, 'average', 'average', device).to(device)
+            model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, 0.0, ['0','2','3'], False, 'average', 'average', device).to(device)
         else:
             model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
         if args.initializer:
-            init_weights(model, init_type=args.initializer, init_gain=0.02)
+            init_weights(model, init_type=args.initializer, init_gain=1.0)
 
         optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
