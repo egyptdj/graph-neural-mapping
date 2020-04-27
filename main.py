@@ -171,7 +171,7 @@ def main():
         train_graphs, test_graphs = separate_data(graphs, args.fold_seed, current_fold)
 
         if args.gcn:
-            model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, 0.0, ['0','2','3'], False, 'average', 'average', device).to(device)
+            model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, ['0','2','3'], False, 'average', 'average', device).to(device)
         else:
             model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
