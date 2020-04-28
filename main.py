@@ -156,10 +156,10 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
-    # graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
+    graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
     # torch.save(graphs, 'data/graphs.pt')
-    graphs = torch.load('data/graphs.pt')
-    num_classes = 2
+    # graphs = torch.load('data/graphs.pt')
+    # num_classes = 2
 
     for current_fold in args.fold_idx:
         print('current fold idx: {}'.format(current_fold))
@@ -171,7 +171,7 @@ def main():
         train_graphs, test_graphs = separate_data(graphs, args.fold_seed, current_fold)
 
         if args.gcn:
-            model = GCN_InfoMaxReg(5, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, ['0','2','3'], False, 'average', 'average', device).to(device)
+            model = GCN_InfoMaxReg(args.num_layers, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, ['0','2','3'], False, 'average', 'average', device).to(device)
         else:
             model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 

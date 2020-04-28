@@ -11,7 +11,7 @@ def main():
     parser.add_argument('--roidir', type=str, default='data/roi/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz', help='path containing the used ROI file')
     parser.add_argument('--roimetadir', type=str, default='data/roi/7_400.txt', help='path containing the metadata of the ROI file')
     parser.add_argument('--savedir', type=str, default='saliency_nii', help='path to save the saliency nii files within the expdir')
-    parser.add_argument('--fold_idx', nargs='+', default=[0,1,2,3,4,5,6,7,8,9], help='fold indices')
+    parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
 
     opt = parser.parse_args()
 
@@ -21,17 +21,22 @@ def main():
     saliency1 = []
     saliency0_early = []
     saliency1_early = []
+    labels = []
 
     for current_fold in opt.fold_idx:
         saliency0.append(np.load(os.path.join(opt.expdir, 'saliency', str(current_fold), 'saliency_female.npy')))
         saliency1.append(np.load(os.path.join(opt.expdir, 'saliency', str(current_fold), 'saliency_male.npy')))
         saliency0_early.append(np.load(os.path.join(opt.expdir, 'saliency', str(current_fold), 'saliency_female_early.npy')))
         saliency1_early.append(np.load(os.path.join(opt.expdir, 'saliency', str(current_fold), 'saliency_male_early.npy')))
+        labels.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'labels.npy')))
 
     saliency0 = np.diagonal(np.concatenate(saliency0, 0), axis1=1, axis2=2)
     saliency1 = np.diagonal(np.concatenate(saliency1, 0), axis1=1, axis2=2)
     saliency0early = np.diagonal(np.concatenate(saliency0_early, 0), axis1=1, axis2=2)
     saliency1early = np.diagonal(np.concatenate(saliency1_early, 0), axis1=1, axis2=2)
+    labels = np.concatenate(labels, 0).squeeze()
+    female_index = np.where(labels==0)
+    male_index = np.where(labels==1)
 
     roiimg = nib.load(opt.roidir)
     roiimgarray = roiimg.get_fdata()
@@ -48,7 +53,7 @@ def main():
         saliency1array = roiimgarray.copy()
         saliency0earlyarray = roiimgarray.copy()
         saliency1earlyarray = roiimgarray.copy()
-        print("EXTRACTING SUBJECT: {}".format(subjidx))
+        print("EXTRACTING SUBJECT: {} (LABEL:{})".format(subjidx, labels[subjidx]))
         for i, (s0, s1, s0e, s1e) in enumerate(zip(sal0, sal1, sal0early, sal1early)):
             roi_voxel_idx = np.where(roiimgarray==i+1)
             for j in range(roi_voxel_idx[0].shape[0]):
@@ -62,126 +67,71 @@ def main():
         saliency0earlysubjects.append(saliency0earlyarray)
         saliency1earlysubjects.append(saliency1earlyarray)
 
+    normalized_array = plot_nii(saliency0subjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_final')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_final')
+    normalized_array = plot_nii(saliency1subjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_final')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_final')
+    normalized_array = plot_nii(saliency0earlysubjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_early')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_early')
+    normalized_array = plot_nii(saliency1earlysubjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_early')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_early')
 
-    saliency0array = np.mean(np.stack(saliency0subjects), axis=0)
-    saliency1array = np.mean(np.stack(saliency1subjects), axis=0)
-    saliency0earlyarray = np.mean(np.stack(saliency0earlysubjects), axis=0)
-    saliency1earlyarray = np.mean(np.stack(saliency1earlysubjects), axis=0)
-    saliency0array_normalized = saliency0array.copy()
-    saliency1array_normalized = saliency1array.copy()
-    saliency0earlyarray_normalized = saliency0earlyarray.copy()
-    saliency1earlyarray_normalized = saliency1earlyarray.copy()
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0subjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_final')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0subjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_final')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1subjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_final')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1subjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_final')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0earlysubjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_early')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0earlysubjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_early')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1earlysubjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_early')
+    normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1earlysubjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_early')
 
-    saliency0array_normalized /= np.abs(saliency0array_normalized).max()
-    saliency1array_normalized /= np.abs(saliency1array_normalized).max()
-    saliency0earlyarray_normalized /= np.abs(saliency0earlyarray_normalized).max()
-    saliency1earlyarray_normalized /= np.abs(saliency1earlyarray_normalized).max()
 
-    zero_idx = np.where(saliency0array_normalized==0)
-    saliency0img = nib.Nifti1Image(saliency0array, roiimgaffine)
-    saliency1img = nib.Nifti1Image(saliency1array, roiimgaffine)
-    saliency0earlyimg = nib.Nifti1Image(saliency0earlyarray, roiimgaffine)
-    saliency1earlyimg = nib.Nifti1Image(saliency1earlyarray, roiimgaffine)
-    saliency0img_normalized = nib.Nifti1Image(saliency0array_normalized, roiimgaffine)
-    saliency1img_normalized = nib.Nifti1Image(saliency1array_normalized, roiimgaffine)
-    saliency0earlyimg_normalized = nib.Nifti1Image(saliency0earlyarray_normalized, roiimgaffine)
-    saliency1earlyimg_normalized = nib.Nifti1Image(saliency1earlyarray_normalized, roiimgaffine)
+def plot_nii(subject_list, roiimgaffine, savepath, desc):
+    saliency_array = np.mean(np.stack(subject_list), axis=0)
 
-    saliency0_normalized_idx = (saliency0array_normalized>0.7).astype(np.uint8)+(saliency0array_normalized<-0.7).astype(np.uint8)
-    saliency0_idx_tuple = np.nonzero(saliency0_normalized_idx)
-    saliency0_rois = []
-    saliency0_values = []
-    saliency0_labels = []
-    for i in range(len(saliency0_idx_tuple[0])):
-        roi = roiimgarray[saliency0_idx_tuple[0][i],saliency0_idx_tuple[1][i],saliency0_idx_tuple[2][i]]
-        value = saliency0array_normalized[saliency0_idx_tuple[0][i],saliency0_idx_tuple[1][i],saliency0_idx_tuple[2][i]]
-        if str(roi) not in saliency0_rois:
-            assert value not in saliency0_values
-            saliency0_rois.append(str(roi))
-            saliency0_values.append(str(value))
-            saliency0_labels.append(str(roimeta[1][roi]))
+    saliency_array_normalized = saliency_array.copy()
+    saliency_array_normalized /= np.abs(saliency_array_normalized).max()
 
-    saliency1_normalized_idx = (saliency1array_normalized>0.7).astype(np.uint8)+(saliency1array_normalized<-0.7).astype(np.uint8)
-    saliency1_idx_tuple = np.nonzero(saliency1_normalized_idx)
-    saliency1_rois = []
-    saliency1_values = []
-    saliency1_labels = []
-    for i in range(len(saliency1_idx_tuple[0])):
-        roi = roiimgarray[saliency1_idx_tuple[0][i],saliency1_idx_tuple[1][i],saliency1_idx_tuple[2][i]]
-        value = saliency1array_normalized[saliency1_idx_tuple[0][i],saliency1_idx_tuple[1][i],saliency1_idx_tuple[2][i]]
-        if str(roi) not in saliency1_rois:
-            assert value not in saliency1_values
-            saliency1_rois.append(str(roi))
-            saliency1_values.append(str(value))
-            saliency1_labels.append(str(roimeta[1][roi]))
+    zero_idx = np.where(saliency_array_normalized==0)
+    saliency_img = nib.Nifti1Image(saliency_array, roiimgaffine)
+    saliency_img_normalized = nib.Nifti1Image(saliency_array_normalized, roiimgaffine)
 
-    saliency0early_normalized_idx = (saliency0earlyarray_normalized>0.7).astype(np.uint8)+(saliency0earlyarray_normalized<-0.7).astype(np.uint8)
-    saliency0early_idx_tuple = np.nonzero(saliency0early_normalized_idx)
-    saliency0early_rois = []
-    saliency0early_values = []
-    saliency0early_labels = []
-    for i in range(len(saliency0early_idx_tuple[0])):
-        roi = roiimgarray[saliency0early_idx_tuple[0][i],saliency0early_idx_tuple[1][i],saliency0early_idx_tuple[2][i]]
-        value = saliency0earlyarray_normalized[saliency0early_idx_tuple[0][i],saliency0early_idx_tuple[1][i],saliency0early_idx_tuple[2][i]]
-        if str(roi) not in saliency0early_rois:
-            assert value not in saliency0early_values
-            saliency0early_rois.append(str(roi))
-            saliency0early_values.append(str(value))
-            saliency0early_labels.append(str(roimeta[1][roi]))
+    nib.save(saliency_img, os.path.join(savepath, 'saliency_{}.nii'.format(desc)))
+    nib.save(saliency_img_normalized, os.path.join(savepath, 'saliency_normalized_{}.nii'.format(desc)))
+    del saliency_array
+    del saliency_img
+    del saliency_img_normalized
+    return saliency_array_normalized
 
-    saliency1early_normalized_idx = (saliency1earlyarray_normalized>0.7).astype(np.uint8)+(saliency1earlyarray_normalized<-0.7).astype(np.uint8)
-    saliency1early_idx_tuple = np.nonzero(saliency1early_normalized_idx)
-    saliency1early_rois = []
-    saliency1early_values = []
-    saliency1early_labels = []
-    for i in range(len(saliency1early_idx_tuple[0])):
-        roi = roiimgarray[saliency1early_idx_tuple[0][i],saliency1early_idx_tuple[1][i],saliency1early_idx_tuple[2][i]]
-        value = saliency1earlyarray_normalized[saliency1early_idx_tuple[0][i],saliency1early_idx_tuple[1][i],saliency1early_idx_tuple[2][i]]
-        if str(roi) not in saliency1early_rois:
-            assert value not in saliency1early_values
-            saliency1early_rois.append(str(roi))
-            saliency1early_values.append(str(value))
-            saliency1early_labels.append(str(roimeta[1][roi]))
+def write_csv(normalized_array, roiimgarray, roimeta, savepath, desc):
+    normalized_idx = (normalized_array>0.7).astype(np.uint8)+(normalized_array<-0.7).astype(np.uint8)
+    idx_tuple = np.nonzero(normalized_idx)
+    rois = []
+    values = []
+    labels = []
+    for i in range(len(idx_tuple[0])):
+        roi = roiimgarray[idx_tuple[0][i],idx_tuple[1][i],idx_tuple[2][i]]
+        value = normalized_array[idx_tuple[0][i],idx_tuple[1][i],idx_tuple[2][i]]
+        if str(roi) not in rois:
+            assert value not in values
+            rois.append(str(roi))
+            values.append(str(value))
+            labels.append(str(roimeta[1][roi]))
 
-    with open(os.path.join(opt.expdir, opt.savedir, 'saliency_female_final.csv'), 'w') as f:
-        f.write(','.join(saliency0_rois))
+    with open(os.path.join(savepath, 'saliency_{}.csv'.format(desc)), 'w') as f:
+        f.write(','.join(rois))
         f.write("\n")
-        f.write(','.join(saliency0_values))
+        f.write(','.join(values))
         f.write("\n")
-        f.write(','.join(saliency0_labels))
-
-    with open(os.path.join(opt.expdir, opt.savedir, 'saliency_male_final.csv'), 'w') as f:
-        f.write(','.join(saliency1_rois))
-        f.write("\n")
-        f.write(','.join(saliency1_values))
-        f.write("\n")
-        f.write(','.join(saliency1_labels))
-
-    with open(os.path.join(opt.expdir, opt.savedir, 'saliency_female_early.csv'), 'w') as f:
-        f.write(','.join(saliency0early_rois))
-        f.write("\n")
-        f.write(','.join(saliency0early_values))
-        f.write("\n")
-        f.write(','.join(saliency0early_labels))
-
-    with open(os.path.join(opt.expdir, opt.savedir, 'saliency_male_early.csv'), 'w') as f:
-        f.write(','.join(saliency1early_rois))
-        f.write("\n")
-        f.write(','.join(saliency1early_values))
-        f.write("\n")
-        f.write(','.join(saliency1early_labels))
-
-
-    nib.save(saliency0img, os.path.join(opt.expdir, opt.savedir, 'saliency_female_final.nii'))
-    nib.save(saliency1img, os.path.join(opt.expdir, opt.savedir, 'saliency_male_final.nii'))
-    nib.save(saliency0img_normalized, os.path.join(opt.expdir, opt.savedir, 'saliency_normalized_female_final.nii'))
-    nib.save(saliency1img_normalized, os.path.join(opt.expdir, opt.savedir, 'saliency_normalized_male_final.nii'))
-
-    nib.save(saliency0earlyimg, os.path.join(opt.expdir, opt.savedir, 'saliency_female_early.nii'))
-    nib.save(saliency1earlyimg, os.path.join(opt.expdir, opt.savedir, 'saliency_male_early.nii'))
-    nib.save(saliency0earlyimg_normalized, os.path.join(opt.expdir, opt.savedir, 'saliency_normalized_female_early.nii'))
-    nib.save(saliency1earlyimg_normalized, os.path.join(opt.expdir, opt.savedir, 'saliency_normalized_male_early.nii'))
-
+        f.write(','.join(labels))
 
 if __name__ == '__main__':
     main()

@@ -12,8 +12,8 @@ def main():
     parser = argparse.ArgumentParser(description='Plot the t-SNE embedding the latent space')
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the latent_space_*.npy')
     parser.add_argument('--savedir', type=str, default='tsne', help='path to save the plotted tsne files within the expdir')
-    parser.add_argument('--fold_idx', nargs='+', default=[0,1,2,3,4,5,6,7,8,9], help='fold indices')
-    parser.add_argument('--perplexities', nargs='+', default=[5, 30, 50, 70, 100], help='tsne perplexities')
+    parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
+    parser.add_argument('--perplexities', nargs='+', default=['5', '30', '50', '70', '100'], help='tsne perplexities')
     parser.add_argument('--random_state', type=int, default=0, help='tsne random state')
 
     opt = parser.parse_args()
@@ -33,9 +33,9 @@ def main():
 
     for perplexity in opt.perplexities:
         for idx, _ in enumerate(labels):
-            plot_tsne(latent_space_initial[idx], labels[idx], perplexity, os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
-            plot_tsne(latent_space_early[idx], labels[idx], perplexity, os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
-            plot_tsne(latent_space_final[idx], labels[idx], perplexity, os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
+            plot_tsne(latent_space_initial[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
+            plot_tsne(latent_space_early[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
+            plot_tsne(latent_space_final[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
 
     latent_space_initial = np.concatenate(latent_space_initial, 0)
     latent_space_early = np.concatenate(latent_space_early, 0)
@@ -43,9 +43,9 @@ def main():
     labels = np.concatenate(labels, 0).squeeze()
 
     for perplexity in opt.perplexities:
-        plot_tsne(latent_space_initial, labels, perplexity, os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_full'.format(perplexity), opt.random_state)
-        plot_tsne(latent_space_early, labels, perplexity, os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_full'.format(perplexity), opt.random_state)
-        plot_tsne(latent_space_final, labels, perplexity, os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_full'.format(perplexity), opt.random_state)
+        plot_tsne(latent_space_initial, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_full'.format(perplexity), opt.random_state)
+        plot_tsne(latent_space_early, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_full'.format(perplexity), opt.random_state)
+        plot_tsne(latent_space_final, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_full'.format(perplexity), opt.random_state)
 
 
 def plot_tsne(latent, label, perplexity, savedir, savename, random_state=0):

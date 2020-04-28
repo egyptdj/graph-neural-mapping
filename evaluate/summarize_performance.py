@@ -8,7 +8,7 @@ def main():
     parser = argparse.ArgumentParser(description='Summarize the performance of the model')
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the result.csv and the test_sequence.csv')
     parser.add_argument('--savedir', type=str, default='performance', help='path to save the performance record files within the expdir')
-    parser.add_argument('--fold_idx', nargs='+', default=[0,1,2,3,4,5,6,7,8,9], help='fold indices')
+    parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
 
     opt = parser.parse_args()
 

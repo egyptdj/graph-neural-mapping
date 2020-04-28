@@ -8,7 +8,7 @@ def main():
     parser = argparse.ArgumentParser(description='Compute the silhouette score of the latent space')
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the latent_space_*.npy')
     parser.add_argument('--savedir', type=str, default='silhouette', help='path to save the silhouette value within the expdir')
-    parser.add_argument('--fold_idx', nargs='+', default=[0,1,2,3,4,5,6,7,8,9], help='fold indices')
+    parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
 
     opt = parser.parse_args()
     os.makedirs(os.path.join(opt.expdir, opt.savedir), exist_ok=True)

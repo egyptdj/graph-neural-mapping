@@ -344,30 +344,34 @@ class GCN_InfoMaxReg(nn.Module):
 
         ###List of batchnorms applied to the output of MLP (input of the final prediction linear layer)
         self.batch_norms = torch.nn.ModuleList()
+        self.linears_prediction = torch.nn.ModuleList()
 
         for layer in range(self.num_layers):
             if layer == 0:
                 self.mlps.append(MLP(1, input_dim, 32, 32))
                 self.batch_norms.append(nn.BatchNorm1d(32))
+                self.linears_prediction.append(nn.Linear(32, output_dim))
             elif layer == 1:
                 self.mlps.append(MLP(1, 32, 32, 32))
                 self.batch_norms.append(nn.BatchNorm1d(32))
+                self.linears_prediction.append(nn.Linear(32, output_dim))
             elif layer == 2:
                 self.mlps.append(MLP(1, 32, 64, 64))
                 self.batch_norms.append(nn.BatchNorm1d(64))
+                self.linears_prediction.append(nn.Linear(64, output_dim))
             elif layer == 3:
                 self.mlps.append(MLP(1, 64, 64, 64))
                 self.batch_norms.append(nn.BatchNorm1d(64))
+                self.linears_prediction.append(nn.Linear(64, output_dim))
             elif layer == 4:
                 self.mlps.append(MLP(1, 64, 64, 128))
                 self.batch_norms.append(nn.BatchNorm1d(128))
+                self.linears_prediction.append(nn.Linear(128, output_dim))
             else:
-                raise Exception('num_layeres does not match baseline')
+                raise Exception('num_layers exceeds baseline')
 
 
         #Linear function that maps the hidden representation at dofferemt layers into a prediction score
-        self.linears_prediction = torch.nn.ModuleList()
-        self.linears_prediction.append(nn.Linear(128, output_dim))
 
 
     def __preprocess_neighbors_maxpool(self, batch_graph):
@@ -547,7 +551,7 @@ class GCN_InfoMaxReg(nn.Module):
             hidden_rep.append(h) # [[557,7],[557,64]x4]
 
         pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
-        c_logit = F.dropout(self.linears_prediction[0](pooled_h), self.final_dropout, training=self.training)
+        c_logit = F.dropout(self.linears_prediction[-1](pooled_h), self.final_dropout, training=self.training)
 
         n_f = h
         g_f = pooled_h
@@ -598,7 +602,7 @@ class GCN_InfoMaxReg(nn.Module):
             hidden_rep.append(h) # [[557,7],[557,64]x4]
 
         pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
-        score_over_layer = self.linears_prediction[0](pooled_h)
+        score_over_layer = self.linears_prediction[-1](pooled_h)
 
         # predicting 0
         predicting_class = torch.zeros_like(score_over_layer).to(self.device)
