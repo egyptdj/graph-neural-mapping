@@ -36,7 +36,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
 
-        if args.gcn:
+        if args.gcn or args.gcn_cheb:
             d_loss = 0.0
         else:
             d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)
@@ -147,6 +147,7 @@ def main():
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
     parser.add_argument('--gcn', action='store_true', help='test the model with gcn')
+    parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn chebyshev')
 
     parser.add_argument('--process_data', action='store_true', help='process data at initialization')
     parser.add_argument('--save_process_data', action='store_true', help='save processed data at initialization')
@@ -178,6 +179,8 @@ def main():
 
         if args.gcn:
             model = GCN_InfoMaxReg(args.num_layers, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, ['0','2','3'], False, 'average', 'average', device).to(device)
+        elif args.gcn_cheb:
+            model = GCN_Cheb(args.num_layers, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, 0.0, ['0','2','3'], False, 'average', 'average', device).to(device)
         else:
             model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
