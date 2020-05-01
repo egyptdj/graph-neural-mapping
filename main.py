@@ -149,6 +149,7 @@ def main():
     parser.add_argument('--gcn', action='store_true', help='test the model with gcn')
 
     parser.add_argument('--process_data', action='store_true', help='process data at initialization')
+    parser.add_argument('--save_process_data', action='store_true', help='save processed data at initialization')
     args = parser.parse_args()
 
     #set up seeds and gpu device
@@ -157,12 +158,13 @@ def main():
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-    
+
     if args.process_data:
         graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
-        # torch.save(graphs, 'data/graphs.pt')
+        if args.save_process_data:        
+            torch.save(graphs, 'data/graphs_sparsity{}.pt'.format(args.sparsity))
     else:
-        graphs = torch.load('data/graphs.pt')
+        graphs = torch.load('data/graphs_sparsity{}.pt'.format(args.sparsity))
         num_classes = 2
 
     for current_fold in args.fold_idx:
