@@ -153,10 +153,12 @@ def main():
     parser.add_argument('--save_process_data', action='store_true', help='save processed data at initialization')
     args = parser.parse_args()
 
+    os.environ['CUDA_VISIBLE_DEVICES']=f'{args.device}'
+
     #set up seeds and gpu device
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 

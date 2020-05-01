@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the saliency_female.npy and the saliency_male.npy')
     parser.add_argument('--roidir', type=str, default='data/roi/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz', help='path containing the used ROI file')
     parser.add_argument('--roimetadir', type=str, default='data/roi/7_400.txt', help='path containing the metadata of the ROI file')
+    parser.add_argument('--threshold', type=int, default=0.7, help='threshold value of salient regions')
     parser.add_argument('--savedir', type=str, default='saliency_nii', help='path to save the saliency nii files within the expdir')
     parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
 
@@ -68,30 +69,30 @@ def main():
         saliency1earlysubjects.append(saliency1earlyarray)
 
     normalized_array = plot_nii(saliency0subjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_final')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_final')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'female_final')
     normalized_array = plot_nii(saliency1subjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_final')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_final')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'male_final')
     normalized_array = plot_nii(saliency0earlysubjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_early')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_early')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'female_early')
     normalized_array = plot_nii(saliency1earlysubjects, roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_early')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_early')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'male_early')
 
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0subjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_final')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_final')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0subjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_final')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_final')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1subjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_final')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_final')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1subjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_final')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_final')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_final')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0earlysubjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_early')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'female_femalesubj_early')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency0earlysubjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_early')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'female_malesubj_early')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1earlysubjects) if labels[idx]==0], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_early')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'male_femalesubj_early')
     normalized_array = plot_nii([subject for idx, subject in enumerate(saliency1earlysubjects) if labels[idx]==1], roiimgaffine, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_early')
-    write_csv(normalized_array, roiimgarray, roimeta, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_early')
+    write_csv(normalized_array, roiimgarray, roimeta, opt.threshold, os.path.join(opt.expdir, opt.savedir), 'male_malesubj_early')
 
 
 def plot_nii(subject_list, roiimgaffine, savepath, desc):
@@ -111,8 +112,9 @@ def plot_nii(subject_list, roiimgaffine, savepath, desc):
     del saliency_img_normalized
     return saliency_array_normalized
 
-def write_csv(normalized_array, roiimgarray, roimeta, savepath, desc):
-    normalized_idx = (normalized_array>0.7).astype(np.uint8)+(normalized_array<-0.7).astype(np.uint8)
+def write_csv(normalized_array, roiimgarray, roimeta, threshold, savepath, desc):
+    assert threshold >=0.0 and threshold <= 1.0
+    normalized_idx = (normalized_array>threshold).astype(np.uint8)+(normalized_array<-threshold).astype(np.uint8)
     idx_tuple = np.nonzero(normalized_idx)
     rois = []
     values = []
@@ -125,13 +127,12 @@ def write_csv(normalized_array, roiimgarray, roimeta, savepath, desc):
             rois.append(str(roi))
             values.append(str(value))
             labels.append(str(roimeta[1][roi]))
+    zipped = list(zip(values, labels, rois))
+    zipped.sort()
 
     with open(os.path.join(savepath, 'saliency_{}.csv'.format(desc)), 'w') as f:
-        f.write(','.join(rois))
-        f.write("\n")
-        f.write(','.join(values))
-        f.write("\n")
-        f.write(','.join(labels))
+        f.write('value,label,roi\n')
+        f.writerows(zipped)
 
 if __name__ == '__main__':
     main()
