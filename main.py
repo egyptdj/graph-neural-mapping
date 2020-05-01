@@ -147,6 +147,7 @@ def main():
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
     parser.add_argument('--gcn', action='store_true', help='test the model with gcn')
+    parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn chebyshev')
 
     parser.add_argument('--process_data', action='store_true', help='process data at initialization')
     args = parser.parse_args()
@@ -157,7 +158,7 @@ def main():
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-    
+
     if args.process_data:
         graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
         # torch.save(graphs, 'data/graphs.pt')
@@ -176,6 +177,8 @@ def main():
 
         if args.gcn:
             model = GCN_InfoMaxReg(args.num_layers, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, ['0','2','3'], False, 'average', 'average', device).to(device)
+        elif args.gcn_cheb:
+            model = GCN_Cheb(args.num_layers, 1, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, 0.0, ['0','2','3'], False, 'average', 'average', device).to(device)
         else:
             model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
