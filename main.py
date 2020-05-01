@@ -36,7 +36,7 @@ def train(args, model, device, train_graphs, optimizer, beta, epoch):
 
         c_labels = torch.LongTensor([graph.label for graph in batch_graph]).to(device)
 
-        if args.gcn:
+        if args.gcn or args.gcn_cheb:
             d_loss = 0.0
         else:
             d_labels = torch.cat([torch.ones(args.batch_size*int(args.rois.split('_')[-1]), 1), torch.zeros(args.batch_size*int(args.rois.split('_')[-1]), 1)], 0).to(device)

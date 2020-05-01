@@ -629,9 +629,6 @@ class GCN_Cheb(nn.Module):
 
         super(GCN_Cheb, self).__init__()
 
-        self.disc = Discriminator(128)
-        self.sigm = nn.Sigmoid()
-
         self.final_dropout = final_dropout
         self.dropout_layers = dropout_layers
         self.device = device
@@ -770,8 +767,8 @@ class GCN_Cheb(nn.Module):
         ###pooling neighboring nodes and center nodes separately by epsilon reweighting.
 
         edge_index = Adj_block._indices()
-        pooled_rep = self.mlps[layer](h, edge_index)
-        h = self.batch_norms[layer](pooled_rep)
+        h = self.mlps[layer](h, edge_index)
+        h = self.batch_norms[layer](h)
 
         #non-linearity
         h = F.relu(h)
@@ -780,10 +777,9 @@ class GCN_Cheb(nn.Module):
 
     def next_layer(self, h, layer, padded_neighbor_list = None, Adj_block = None):
         ###pooling neighboring nodes and center nodes altogether
-
         edge_index = Adj_block._indices()
-        pooled_rep = self.mlps[layer](h, edge_index)
-        h = self.batch_norms[layer](pooled_rep)
+        h = self.mlps[layer](h, edge_index)
+        h = self.batch_norms[layer](h)
 
         #non-linearity
         h = F.relu(h)
@@ -831,25 +827,11 @@ class GCN_Cheb(nn.Module):
         pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
         c_logit = F.dropout(self.linears_prediction[-1](pooled_h), self.final_dropout, training=self.training)
 
-        n_f = h
-        g_f = pooled_h
-
-        h_1 = n_f
-
-        c = g_f
-        c = self.sigm(c)
-
-        idx = np.asarray(idx)
-        shuf_n_f = n_f[idx, :]
-
-        h_2 = shuf_n_f
-
-        d_logit = self.disc(c, h_1, h_2, None, None)
 
         if latent:
-            return g_f.detach().cpu().numpy()
+            return pooled_h.detach().cpu().numpy()
         else:
-            return c_logit, d_logit
+            return c_logit, c_logit
 
     def compute_saliency(self, batch_graph, cls):
         self.eval()
