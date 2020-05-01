@@ -161,7 +161,7 @@ def main():
         torch.cuda.manual_seed_all(args.seed)
 
     try:
-        graphs = torch.load('data/graphs_sparsity{}.pt'.format(args.sparsity)
+        graphs = torch.load('data/graphs_sparsity{}.pt'.format(args.sparsity))
         num_classes = 2
     except:
         graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)       
