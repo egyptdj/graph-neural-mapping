@@ -2,7 +2,6 @@ import os
 import pickle
 import argparse
 import neurosynth
-import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 
 
@@ -29,19 +28,20 @@ def main():
         with open(os.path.join(opt.neurosynthdir, 'neurosynth_decoder.pkl'), 'wb') as f:
             pickle.dump(decoder, f, protocol=4)
 
-    nii_list = [f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_female_early.nii', \\
-                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_male_early.nii', \\
-                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_female_femalesubj_early.nii', \\
+    nii_list = [f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_female_early.nii',
+                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_male_early.nii',
+                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_female_femalesubj_early.nii',
                 f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_male_malesubj_early.nii']
 
     decoded_semantics = decoder.decode(nii_list)
     if opt.abs: decoded_semantics = decoded_semantics.abs()
     decoded_semantics = decoded_semantics.to_dict()
 
-    wordcloud = WordCloud(background_color='white')
+    wordcloud = WordCloud(background_color='white', width=1600, height=800)
     for nii in nii_list:
         fname = '_'.join(nii.split('/')[-1].split('.')[0].split('_')[2:])
-        plt.imsave(os.path.join(opt.expdir, opt.savedir, f'{fname}.png'), wordcloud.generate_from_frequencies(decoded_semantics[nii]))
+        cloud = wordcloud.generate_from_frequencies(decoded_semantics[nii])
+        cloud.to_file(f'{opt.expdir}/{opt.savedir}/{fname}.png')
 
 
 if __name__ == '__main__':
