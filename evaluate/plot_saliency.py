@@ -10,7 +10,7 @@ def main():
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the saliency_female.npy and the saliency_male.npy')
     parser.add_argument('--roidir', type=str, default='data/roi/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_2mm.nii.gz', help='path containing the used ROI file')
     parser.add_argument('--roimetadir', type=str, default='data/roi/7_400.txt', help='path containing the metadata of the ROI file')
-    parser.add_argument('--threshold', type=int, default=0.7, help='threshold value of salient regions')
+    parser.add_argument('--threshold', type=float, default=0.0, help='threshold value of salient regions')
     parser.add_argument('--savedir', type=str, default='saliency_nii', help='path to save the saliency nii files within the expdir')
     parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
 
@@ -118,6 +118,7 @@ def write_csv(normalized_array, roiimgarray, roimeta, threshold, savepath, desc)
     idx_tuple = np.nonzero(normalized_idx)
     rois = []
     values = []
+    abs_values = []
     labels = []
     for i in range(len(idx_tuple[0])):
         roi = roiimgarray[idx_tuple[0][i],idx_tuple[1][i],idx_tuple[2][i]]
@@ -126,13 +127,16 @@ def write_csv(normalized_array, roiimgarray, roimeta, threshold, savepath, desc)
             assert value not in values
             rois.append(str(roi))
             values.append(str(value))
+            abs_values.append(str(abs(value)))
             labels.append(str(roimeta[1][roi]))
-    zipped = list(zip(values, labels, rois))
+    zipped = list(zip(abs_values, rois, labels, values))
     zipped.sort()
 
     with open(os.path.join(savepath, 'saliency_{}.csv'.format(desc)), 'w') as f:
-        f.write('value,label,roi\n')
-        f.writerows(zipped)
+        f.write('abs_value,roi,label,value\n')
+        for item in zipped:
+            f.write(','.join(item))
+            f.write('\n')
 
 if __name__ == '__main__':
     main()
