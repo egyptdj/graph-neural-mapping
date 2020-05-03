@@ -33,11 +33,11 @@ def main():
                 f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_female_femalesubj_early.nii',
                 f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_male_malesubj_early.nii']
 
-    decoded_semantics = decoder.decode(nii_list)
+    decoded_semantics = decoder.decode(nii_list, save=f'{opt.expdir}/{opt.savedir}/decoded_table.csv')
     if opt.abs: decoded_semantics = decoded_semantics.abs()
     decoded_semantics = decoded_semantics.to_dict()
 
-    wordcloud = WordCloud(background_color='white', width=1600, height=800)
+    wordcloud = WordCloud(background_color='white', width=800, height=1600)
     for nii in nii_list:
         fname = '_'.join(nii.split('/')[-1].split('.')[0].split('_')[2:])
         cloud = wordcloud.generate_from_frequencies(decoded_semantics[nii])
