@@ -190,27 +190,8 @@ def main():
         if args.initializer:
             init_weights(model, init_type=args.initializer, init_gain=1.0)
 
-        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
-
-        train_summary_writer = SummaryWriter('results/{}/summary/{}/train'.format(args.exp, current_fold), flush_secs=1, max_queue=1)
-        test_summary_writer = SummaryWriter('results/{}/summary/{}/test'.format(args.exp, current_fold), flush_secs=1, max_queue=1)
-        with open('results/{}/argv.csv'.format(args.exp), 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerows(vars(args).items())
-
-        latent_space_initial, labels = get_latent_space(model, test_graphs)
-        np.save('results/{}/latent/{}/latent_space_initial.npy'.format(args.exp, current_fold), latent_space_initial)
-        np.save('results/{}/latent/{}/labels.npy'.format(args.exp, current_fold), labels)
-        del latent_space_initial
-        del labels
-
-        acc_test_early = 0.0
-        precision_test_early = 0.0
-        recall_test_early = 0.0
-        epoch_early = 0
         if args.infer:
-            model = torch.load('{}/model/{}/model_early.pt'.format(args.infer, current_fold))
+            model.load_state_dict('{}/model/{}/model_early.pt'.format(args.infer, current_fold))
             acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
             print(f'FOLD {current_fold}: A [{acc_test}], P [{precision_test}], R [{recall_test}]')
             latent_space_early, labels = get_latent_space(model, test_graphs)
@@ -228,6 +209,26 @@ def main():
             del cam_saliency_map_1_early
 
         else:
+            optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
+
+            train_summary_writer = SummaryWriter('results/{}/summary/{}/train'.format(args.exp, current_fold), flush_secs=1, max_queue=1)
+            test_summary_writer = SummaryWriter('results/{}/summary/{}/test'.format(args.exp, current_fold), flush_secs=1, max_queue=1)
+            with open('results/{}/argv.csv'.format(args.exp), 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerows(vars(args).items())
+
+            latent_space_initial, labels = get_latent_space(model, test_graphs)
+            np.save('results/{}/latent/{}/latent_space_initial.npy'.format(args.exp, current_fold), latent_space_initial)
+            np.save('results/{}/latent/{}/labels.npy'.format(args.exp, current_fold), labels)
+            del latent_space_initial
+            del labels
+
+            acc_test_early = 0.0
+            precision_test_early = 0.0
+            recall_test_early = 0.0
+            epoch_early = 0
+
             for epoch in range(args.epochs):
                 loss_train = train(args, model, device, train_graphs, optimizer, args.beta, epoch)
                 scheduler.step()
