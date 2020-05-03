@@ -105,5 +105,6 @@ venv.bak/
 
 data/
 results/
+neurosynth/
 run_*
 models/__pycache__/*

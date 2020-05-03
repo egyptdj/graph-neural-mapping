@@ -295,14 +295,14 @@ class GIN_InfoMaxReg(nn.Module):
             hidden_rep.append(h) # [[557,7],[557,64]x4]
 
         score_over_layer = 0
-        class_activation = torch.zeros([X_concat.shape[0]])
+        class_activation = torch.zeros([X_concat.shape[0]]).to(self.device)
 
         #perform pooling over all nodes in each graph in every layer
         for layer, h in enumerate(hidden_rep):
             pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
             score_over_layer += F.dropout(self.linears_prediction[layer](pooled_h), self.final_dropout, training = self.training) # [32,2]
-            weight = self.linears_prediction[layer].weight[:,cls]
-            class_activation += torch.matmul(weight, h)
+            weight = self.linears_prediction[layer].weight[cls]
+            class_activation += torch.matmul(h,weight)
 
         # predicting 0
         predicting_class = torch.zeros_like(score_over_layer).to(self.device)
