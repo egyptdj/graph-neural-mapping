@@ -151,6 +151,7 @@ def main():
     parser.add_argument('--sparsity', type=int, default=20, help='sparsity K of graph adjacency')
     parser.add_argument('--gcn', action='store_true', help='test the model with gcn')
     parser.add_argument('--gcn_cheb', action='store_true', help='test the model with gcn chebyshev')
+    parser.add_argument('--infer', type=str, default=None, help='skip train to inference. specify experiment dir')
 
     parser.add_argument('--process_data', action='store_true', help='process data at initialization')
     parser.add_argument('--save_process_data', action='store_true', help='save processed data at initialization')
@@ -208,45 +209,64 @@ def main():
         precision_test_early = 0.0
         recall_test_early = 0.0
         epoch_early = 0
-        for epoch in range(args.epochs):
-            loss_train = train(args, model, device, train_graphs, optimizer, args.beta, epoch)
-            scheduler.step()
-            acc_train,  precision_train, recall_train, = test(args, model, device, train_graphs)
-
-            train_summary_writer.add_scalar('loss/total', loss_train, epoch)
-            train_summary_writer.add_scalar('metrics/accuracy', acc_train, epoch)
-            train_summary_writer.add_scalar('metrics/precision', precision_train, epoch)
-            train_summary_writer.add_scalar('metrics/recall', recall_train, epoch)
-            if epoch%25==0: torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, current_fold))
-            print ('EPOCH [{:3d}] TRAIN_LOSS [{:.3f}] ACC [{:.4f}] P [{:.4f}] R [{:.4f}]'.format(epoch, loss_train, acc_train, precision_train, recall_train))
+        if args.infer:
+            model = torch.load('{}/model/{}/model_early.pt'.format(args.infer, current_fold))
             acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
-            test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
-            test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
-            test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
-            with open('results/{}/csv/{}/test_sequence.csv'.format(args.exp, current_fold), 'a') as f:
-                f.write(','.join([str(current_fold), str(acc_test), str(precision_test), str(recall_test)]))
-                f.write('\n')
-            if acc_test > acc_test_early:
-                print('top test acc: {:.4f}'.format(acc_test))
-                acc_test_early = acc_test
-                precision_test_early = precision_test
-                recall_test_early = recall_test
-                epoch_early = epoch
-                torch.save(model.state_dict(), 'results/{}/model/{}/model_early.pt'.format(args.exp, current_fold))
+            print(f'FOLD {current_fold}: A [{acc_test}], P [{precision_test}], R [{recall_test}]')
+            latent_space_early, labels = get_latent_space(model, test_graphs)
+            grad_saliency_map_0_early, cam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
+            grad_saliency_map_1_early, cam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+            np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
+            np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
+            np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
+            np.save('results/{}/saliency/{}/cam_saliency_female_early.npy'.format(args.exp, current_fold), cam_saliency_map_0_early)
+            np.save('results/{}/saliency/{}/cam_saliency_male_early.npy'.format(args.exp, current_fold), cam_saliency_map_1_early)
+            del latent_space_early
+            del grad_saliency_map_0_early
+            del grad_saliency_map_1_early
+            del cam_saliency_map_0_early
+            del cam_saliency_map_1_early
 
-                latent_space_early, labels = get_latent_space(model, test_graphs)
-                grad_saliency_map_0_early, cam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
-                grad_saliency_map_1_early, cam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
-                np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
-                np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
-                np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
-                np.save('results/{}/saliency/{}/cam_saliency_female_early.npy'.format(args.exp, current_fold), cam_saliency_map_0_early)
-                np.save('results/{}/saliency/{}/cam_saliency_male_early.npy'.format(args.exp, current_fold), cam_saliency_map_1_early)
-                del latent_space_early
-                del grad_saliency_map_0_early
-                del grad_saliency_map_1_early
-                del cam_saliency_map_0_early
-                del cam_saliency_map_1_early
+        else:
+            for epoch in range(args.epochs):
+                loss_train = train(args, model, device, train_graphs, optimizer, args.beta, epoch)
+                scheduler.step()
+                acc_train,  precision_train, recall_train, = test(args, model, device, train_graphs)
+
+                train_summary_writer.add_scalar('loss/total', loss_train, epoch)
+                train_summary_writer.add_scalar('metrics/accuracy', acc_train, epoch)
+                train_summary_writer.add_scalar('metrics/precision', precision_train, epoch)
+                train_summary_writer.add_scalar('metrics/recall', recall_train, epoch)
+                if epoch%25==0: torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, current_fold))
+                print ('EPOCH [{:3d}] TRAIN_LOSS [{:.3f}] ACC [{:.4f}] P [{:.4f}] R [{:.4f}]'.format(epoch, loss_train, acc_train, precision_train, recall_train))
+                acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
+                test_summary_writer.add_scalar('metrics/accuracy', acc_test, epoch)
+                test_summary_writer.add_scalar('metrics/precision', precision_test, epoch)
+                test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
+                with open('results/{}/csv/{}/test_sequence.csv'.format(args.exp, current_fold), 'a') as f:
+                    f.write(','.join([str(current_fold), str(acc_test), str(precision_test), str(recall_test)]))
+                    f.write('\n')
+                if acc_test > acc_test_early:
+                    print('top test acc: {:.4f}'.format(acc_test))
+                    acc_test_early = acc_test
+                    precision_test_early = precision_test
+                    recall_test_early = recall_test
+                    epoch_early = epoch
+                    torch.save(model.state_dict(), 'results/{}/model/{}/model_early.pt'.format(args.exp, current_fold))
+
+                    latent_space_early, labels = get_latent_space(model, test_graphs)
+                    grad_saliency_map_0_early, cam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
+                    grad_saliency_map_1_early, cam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+                    np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
+                    np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
+                    np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
+                    np.save('results/{}/saliency/{}/cam_saliency_female_early.npy'.format(args.exp, current_fold), cam_saliency_map_0_early)
+                    np.save('results/{}/saliency/{}/cam_saliency_male_early.npy'.format(args.exp, current_fold), cam_saliency_map_1_early)
+                    del latent_space_early
+                    del grad_saliency_map_0_early
+                    del grad_saliency_map_1_early
+                    del cam_saliency_map_0_early
+                    del cam_saliency_map_1_early
 
         print([acc_test, precision_test, recall_test])
         print([acc_test_early, precision_test_early, recall_test_early])
