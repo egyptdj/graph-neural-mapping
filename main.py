@@ -191,7 +191,7 @@ def main():
             init_weights(model, init_type=args.initializer, init_gain=1.0)
 
         if args.infer:
-            model.load_state_dict('{}/model/{}/model_early.pt'.format(args.infer, current_fold))
+            model.load_state_dict(torch.load('{}/model/{}/model_early.pt'.format(args.infer, current_fold)))
             acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
             print(f'FOLD {current_fold}: A [{acc_test}], P [{precision_test}], R [{recall_test}]')
             latent_space_early, labels = get_latent_space(model, test_graphs)
