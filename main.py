@@ -78,13 +78,16 @@ def pass_data_iteratively(model, graphs):
 
 def get_saliency_map(model, graphs, cls):
     model.eval()
-    saliency_maps=[]
+    grad_saliency_maps=[]
+    cam_saliency_maps=[]
     for graph in graphs:
-        map = model.compute_saliency([graph], cls)
-        saliency_maps.append(map.detach().cpu().numpy())
+        grad_map, cam_map = model.compute_saliency([graph], cls)
+        grad_saliency_maps.append(grad_map.detach().cpu().numpy())
+        cam_saliency_maps.append(cam_map.detach().cpu().numpy())
 
-    saliency_maps = np.stack(saliency_maps, axis=0)
-    return saliency_maps
+    grad_saliency_maps = np.stack(grad_saliency_maps, axis=0)
+    cam_saliency_maps = np.stack(cam_saliency_maps, axis=0)
+    return grad_saliency_maps, cam_saliency_maps
 
 def get_latent_space(model, graphs):
     model.eval()
@@ -164,7 +167,7 @@ def main():
         graphs = torch.load('data/graphs_sparsity{}.pt'.format(args.sparsity))
         num_classes = 2
     except:
-        graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)       
+        graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
         torch.save(graphs, 'data/graphs_sparsity{}.pt'.format(args.sparsity))
 
     for current_fold in args.fold_idx:
@@ -232,14 +235,18 @@ def main():
                 torch.save(model.state_dict(), 'results/{}/model/{}/model_early.pt'.format(args.exp, current_fold))
 
                 latent_space_early, labels = get_latent_space(model, test_graphs)
-                saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
-                saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+                grad_saliency_map_0_early, cam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
+                grad_saliency_map_1_early, cam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
                 np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
-                np.save('results/{}/saliency/{}/saliency_female_early.npy'.format(args.exp, current_fold), saliency_map_0_early)
-                np.save('results/{}/saliency/{}/saliency_male_early.npy'.format(args.exp, current_fold), saliency_map_1_early)
+                np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
+                np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
+                np.save('results/{}/saliency/{}/cam_saliency_female_early.npy'.format(args.exp, current_fold), cam_saliency_map_0_early)
+                np.save('results/{}/saliency/{}/cam_saliency_male_early.npy'.format(args.exp, current_fold), cam_saliency_map_1_early)
                 del latent_space_early
-                del saliency_map_0_early
-                del saliency_map_1_early
+                del grad_saliency_map_0_early
+                del grad_saliency_map_1_early
+                del cam_saliency_map_0_early
+                del cam_saliency_map_1_early
 
         print([acc_test, precision_test, recall_test])
         print([acc_test_early, precision_test_early, recall_test_early])
@@ -249,10 +256,12 @@ def main():
         test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
         torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, current_fold))
 
-        saliency_map_0 = get_saliency_map(model, test_graphs, 0)
-        saliency_map_1 = get_saliency_map(model, test_graphs, 1)
-        np.save('results/{}/saliency/{}/saliency_female.npy'.format(args.exp, current_fold), saliency_map_0)
-        np.save('results/{}/saliency/{}/saliency_male.npy'.format(args.exp, current_fold), saliency_map_1)
+        grad_saliency_map_0, cam_saliency_map_0 = get_saliency_map(model, test_graphs, 0)
+        grad_saliency_map_1, cam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
+        np.save('results/{}/saliency/{}/grad_saliency_female.npy'.format(args.exp, current_fold), grad_saliency_map_0)
+        np.save('results/{}/saliency/{}/grad_saliency_male.npy'.format(args.exp, current_fold), grad_saliency_map_1)
+        np.save('results/{}/saliency/{}/cam_saliency_female.npy'.format(args.exp, current_fold), cam_saliency_map_0)
+        np.save('results/{}/saliency/{}/cam_saliency_male.npy'.format(args.exp, current_fold), cam_saliency_map_1)
 
         final_latent_space, _ = get_latent_space(model, test_graphs)
         np.save('results/{}/latent/{}/latent_space_final.npy'.format(args.exp, current_fold), final_latent_space)
