@@ -27,7 +27,6 @@ class Guided_backprop(object):
         self.register_hooks()
 
     def register_hooks(self):
-
         def first_layer_hook_fn(module, grad_out, grad_in):
             """ Return reconstructed activation image"""
             self.reconstruction = grad_out[0]
@@ -57,18 +56,25 @@ class Guided_backprop(object):
 
         # !!!!!!!!!!!!!!!! change the modules !!!!!!!!!!!!!!!!!!
         # only conv layers, no flattened fc linear layers
-        import ipdb; ipdb.set_trace()
-        modules = list(self.model.features._modules.items())
 
         # register hooks to relu layers
-        for name, module in modules:
-            if isinstance(module, nn.ReLU):
-                module.register_forward_hook(forward_hook_fn)
-                module.register_backward_hook(backward_hook_fn)
+        self.model.relu.register_forward_hook(forward_hook_fn)
+        self.model.relu.register_backward_hook(backward_hook_fn)
 
         # register hook to the first layer
-        first_layer = modules[0][1]
+        first_layer = self.model.mlps[0].linears[0]
         first_layer.register_backward_hook(first_layer_hook_fn)
+
+    def get_saliency(self, batch_graph, target_class):
+        model_output, _ = self.model(batch_graph)
+        self.model.zero_grad()
+
+        predicting_class = torch.zeros([1,2]).to(self.device)
+        predicting_class[0, target_class] = 1
+
+        model_output.backward(predicting_class)
+        import ipdb; ipdb.set_trace()
+        return self.reconstruction
 
 
 
