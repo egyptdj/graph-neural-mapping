@@ -24,6 +24,11 @@ class Guided_backprop(object):
         self.activation_maps = []
         self.hooks = []
         # eval mode
+        self.predicting_class = []
+        self.predicting_class.append(torch.zeros([1,2]).to(self.model.device))
+        self.predicting_class.append(torch.zeros([1,2]).to(self.model.device))
+        self.predicting_class[0][0,0]=1
+        self.predicting_class[1][0,1]=1
 
     def register_hooks(self):
         def first_layer_hook_fn(module, grad_out, grad_in):
@@ -68,10 +73,7 @@ class Guided_backprop(object):
         model_output, _ = self.model(batch_graph)
         self.model.zero_grad()
 
-        predicting_class = torch.zeros([1,2]).to(self.model.device)
-        predicting_class[0, target_class] = 1
-
-        model_output.backward(predicting_class)
+        model_output.backward(self.predicting_class[target_class])
         return self.model._last_input.grad
 
     def release_hook(self):
