@@ -65,7 +65,7 @@ class Guided_backprop(object):
         first_layer = self.model.mlps[0].linears[0]
         first_layer.register_backward_hook(first_layer_hook_fn)
 
-    def get_saliency(self, batch_graph, target_class):
+    def compute_saliency(self, batch_graph, target_class):
         model_output, _ = self.model(batch_graph)
         self.model.zero_grad()
 

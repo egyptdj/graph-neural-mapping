@@ -85,7 +85,8 @@ def get_saliency_map(model, graphs, cls):
     cam_saliency_maps=[]
     gradcam_saliency_maps=[]
     for graph in graphs:
-        # gbp_map = gbp.generate_gradients(graph, cls)
+        import ipdb; ipdb.set_trace()
+        gbp_map = gbp.compute_saliency([graph], cls)
         grad_map, cam_map, gradcam_map = model.compute_saliency([graph], cls)
         grad_saliency_maps.append(grad_map.detach().cpu().numpy())
         # gbp_saliency_maps.append(gbp_map.detach().cpu().numpy())
