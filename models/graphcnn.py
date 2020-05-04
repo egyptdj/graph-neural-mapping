@@ -296,6 +296,7 @@ class GIN_InfoMaxReg(nn.Module):
 
         score_over_layer = 0
         class_activation = torch.zeros([X_concat.shape[0]]).to(self.device)
+        grad_class_activation = torch.zeros([X_concat.shape[0]]).to(self.device)
 
         #perform pooling over all nodes in each graph in every layer
         for layer, h in enumerate(hidden_rep):
@@ -304,13 +305,17 @@ class GIN_InfoMaxReg(nn.Module):
             weight = self.linears_prediction[layer].weight[cls]
             class_activation += torch.matmul(h,weight)
 
+            score_over_layer.backward(h)
+            grad_feature = torch.mean(h.grad, 0)
+            grad_class_activation += torch.matmul(h, grad_feature)
+
         # predicting 0
         predicting_class = torch.zeros_like(score_over_layer).to(self.device)
         predicting_class[0, cls] = 1
         score_over_layer.backward(predicting_class)
         saliency = X_concat.grad
 
-        return saliency, class_activation
+        return saliency, class_activation, grad_class_activation
 
 
 class GCN_InfoMaxReg(nn.Module):
