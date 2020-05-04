@@ -74,7 +74,8 @@ class Guided_backprop(object):
         self.model.zero_grad()
 
         model_output.backward(self.predicting_class[target_class])
-        return self.model._last_input.grad
+        saliency = self.model._last_input.grad.detach().cpu().numpy()
+        return saliency
 
     def release_hook(self):
         for hook in self.hooks:

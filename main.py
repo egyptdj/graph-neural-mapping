@@ -86,7 +86,7 @@ def get_saliency_map(model, gbp, graphs, cls):
     gradcam_saliency_maps=[]
     for graph in graphs:
         gbp_map = gbp.compute_saliency([graph], cls)
-        gbp_saliency_maps.append(gbp_map.detach().cpu().numpy())
+        gbp_saliency_maps.append(gbp_map)
         gbp.release_hook()
         grad_map, cam_map, gradcam_map = model.compute_saliency([graph], cls)
         grad_saliency_maps.append(grad_map.detach().cpu().numpy())
@@ -142,7 +142,7 @@ def main():
     parser.add_argument('--lr_rate', type=float, default=0.8, help='learning rate decay rate')
     parser.add_argument('--seed', type=int, default=0, help='random seed for splitting the dataset')
     parser.add_argument('--fold_seed', type=int, default=0, help='random seed for splitting the dataset')
-    parser.add_argument('--fold_idx', nargs='+', default=[0,1,2,3,4,5,6,7,8,9], help='indices of fold in 10-fold validation.')
+    parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='indices of fold in 10-fold validation.')
     parser.add_argument('--num_layers', type=int, default=5, help='number of the GNN layers')
     parser.add_argument('--num_mlp_layers', type=int, default=2, help='number of layers for the MLP. 1 means linear model.')
     parser.add_argument('--hidden_dim', type=int, default=64, help='number of hidden units')
@@ -183,6 +183,7 @@ def main():
         torch.save(graphs, 'data/graphs_sparsity{}.pt'.format(args.sparsity))
 
     for current_fold in args.fold_idx:
+        current_fold = int(current_fold)
         print('current fold idx: {}'.format(current_fold))
         os.makedirs('results/{}/saliency/{}'.format(args.exp, current_fold), exist_ok=True)
         os.makedirs('results/{}/latent/{}'.format(args.exp, current_fold), exist_ok=True)
