@@ -30,6 +30,7 @@ class GIN_InfoMaxReg(nn.Module):
 
         self.disc = Discriminator(hidden_dim*num_layers)
         self.sigm = nn.Sigmoid()
+        self.relu = nn.ReLU()
 
         self.final_dropout = final_dropout
         self.dropout_layers = dropout_layers
@@ -170,7 +171,7 @@ class GIN_InfoMaxReg(nn.Module):
         h = self.batch_norms[layer](pooled_rep)
 
         #non-linearity
-        h = F.relu(h)
+        h = self.relu(h)
         return h
 
 
@@ -194,12 +195,13 @@ class GIN_InfoMaxReg(nn.Module):
         h = self.batch_norms[layer](pooled_rep)
 
         #non-linearity
-        h = F.relu(h)
+        h = self.relu(h)
         return h
 
 
     def forward(self, batch_graph, latent=False):
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
+        X_concat.requires_grad_()
         graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
 
         idx = []
@@ -268,10 +270,15 @@ class GIN_InfoMaxReg(nn.Module):
 
     def compute_saliency(self, batch_graph, cls):
         self.eval()
+        self.zero_grad()
         assert len(batch_graph)==1
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         X_concat.requires_grad_()
         graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
+
+        # predicting 0
+        predicting_class = torch.zeros([1,2]).to(self.device)
+        predicting_class[0, cls] = 1
 
         if self.neighbor_pooling_type == "max":
             padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)
@@ -291,7 +298,7 @@ class GIN_InfoMaxReg(nn.Module):
                 h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
             elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
                 h = self.next_layer(h, layer, Adj_block = Adj_block)
-
+            h.retain_grad()
             hidden_rep.append(h) # [[557,7],[557,64]x4]
 
         score_over_layer = 0
@@ -305,17 +312,14 @@ class GIN_InfoMaxReg(nn.Module):
             weight = self.linears_prediction[layer].weight[cls]
             class_activation += torch.matmul(h,weight)
 
-            score_over_layer.backward(h)
-            grad_feature = torch.mean(h.grad, 0)
+            score_over_layer[0,cls].backward(retain_graph=True)
+            grad_feature = h.grad[0]
             grad_class_activation += torch.matmul(h, grad_feature)
 
-        # predicting 0
-        predicting_class = torch.zeros_like(score_over_layer).to(self.device)
-        predicting_class[0, cls] = 1
         score_over_layer.backward(predicting_class)
         saliency = X_concat.grad
 
-        return saliency, class_activation, F.relu(grad_class_activation)
+        return saliency, class_activation, self.relu(grad_class_activation)
 
 
 class GCN_InfoMaxReg(nn.Module):
@@ -337,6 +341,7 @@ class GCN_InfoMaxReg(nn.Module):
 
         self.disc = Discriminator(128)
         self.sigm = nn.Sigmoid()
+        self.relu = nn.ReLU()
 
         self.final_dropout = final_dropout
         self.dropout_layers = dropout_layers
@@ -492,7 +497,7 @@ class GCN_InfoMaxReg(nn.Module):
         h = self.batch_norms[layer](pooled_rep)
 
         #non-linearity
-        h = F.relu(h)
+        h = self.relu(h)
         return h
 
 
@@ -516,7 +521,7 @@ class GCN_InfoMaxReg(nn.Module):
         h = self.batch_norms[layer](pooled_rep)
 
         #non-linearity
-        h = F.relu(h)
+        h = self.relu(h)
         return h
 
 
@@ -782,7 +787,7 @@ class GCN_Cheb(nn.Module):
         h = self.batch_norms[layer](h)
 
         #non-linearity
-        h = F.relu(h)
+        h = self.relu(h)
         return h
 
 
@@ -793,7 +798,7 @@ class GCN_Cheb(nn.Module):
         h = self.batch_norms[layer](h)
 
         #non-linearity
-        h = F.relu(h)
+        h = self.relu(h)
         return h
 
 
