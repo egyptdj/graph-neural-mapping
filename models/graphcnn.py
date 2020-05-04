@@ -202,6 +202,7 @@ class GIN_InfoMaxReg(nn.Module):
     def forward(self, batch_graph, latent=False):
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         X_concat.requires_grad_()
+        self._last_input = X_concat
         graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
 
         idx = []

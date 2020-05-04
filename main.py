@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+import copy
 
 from tqdm import tqdm
 
@@ -79,24 +80,24 @@ def pass_data_iteratively(model, graphs):
 
 def get_saliency_map(model, graphs, cls):
     model.eval()
-    gbp = Guided_backprop(model)
+    gbp = Guided_backprop(copy.deepcopy(model))
     grad_saliency_maps=[]
     gbp_saliency_maps=[]
     cam_saliency_maps=[]
     gradcam_saliency_maps=[]
     for graph in graphs:
-        import ipdb; ipdb.set_trace()
         gbp_map = gbp.compute_saliency([graph], cls)
         grad_map, cam_map, gradcam_map = model.compute_saliency([graph], cls)
         grad_saliency_maps.append(grad_map.detach().cpu().numpy())
-        # gbp_saliency_maps.append(gbp_map.detach().cpu().numpy())
+        gbp_saliency_maps.append(gbp_map.detach().cpu().numpy())
         cam_saliency_maps.append(cam_map.detach().cpu().numpy())
         gradcam_saliency_maps.append(gradcam_map.detach().cpu().numpy())
 
     grad_saliency_maps = np.stack(grad_saliency_maps, axis=0)
-    # gbp_saliency_maps = np.stack(gbp_saliency_maps, axis=0)
+    gbp_saliency_maps = np.stack(gbp_saliency_maps, axis=0)
     cam_saliency_maps = np.stack(cam_saliency_maps, axis=0)
     gradcam_saliency_maps = np.stack(gradcam_saliency_maps, axis=0)
+    del gbp
     return grad_saliency_maps, gbp_saliency_maps, cam_saliency_maps, gradcam_saliency_maps
 
 def get_latent_space(model, graphs):
@@ -206,8 +207,8 @@ def main():
             grad_saliency_map_1_early, gbp_saliency_map_1_early, cam_saliency_map_1_early, gradcam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
             np.save('{}/saliency/{}/grad_saliency_female_early.npy'.format(args.infer, current_fold), grad_saliency_map_0_early)
             np.save('{}/saliency/{}/grad_saliency_male_early.npy'.format(args.infer, current_fold), grad_saliency_map_1_early)
-            # np.save('{}/saliency/{}/gbp_saliency_female_early.npy'.format(args.infer, current_fold), gbp_saliency_map_0_early)
-            # np.save('{}/saliency/{}/gbp_saliency_male_early.npy'.format(args.infer, current_fold), gbp_saliency_map_1_early)
+            np.save('{}/saliency/{}/gbp_saliency_female_early.npy'.format(args.infer, current_fold), gbp_saliency_map_0_early)
+            np.save('{}/saliency/{}/gbp_saliency_male_early.npy'.format(args.infer, current_fold), gbp_saliency_map_1_early)
             np.save('{}/saliency/{}/cam_saliency_female_early.npy'.format(args.infer, current_fold), cam_saliency_map_0_early)
             np.save('{}/saliency/{}/cam_saliency_male_early.npy'.format(args.infer, current_fold), cam_saliency_map_1_early)
             np.save('{}/saliency/{}/gradcam_saliency_female_early.npy'.format(args.infer, current_fold), gradcam_saliency_map_0_early)
@@ -224,8 +225,8 @@ def main():
             grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
             np.save('{}/saliency/{}/grad_saliency_female.npy'.format(args.infer, current_fold), grad_saliency_map_0)
             np.save('{}/saliency/{}/grad_saliency_male.npy'.format(args.infer, current_fold), grad_saliency_map_1)
-            # np.save('{}/saliency/{}/gbp_saliency_female.npy'.format(args.infer, current_fold), gbp_saliency_map_0)
-            # np.save('{}/saliency/{}/gbp_saliency_male.npy'.format(args.infer, current_fold), gbp_saliency_map_1)
+            np.save('{}/saliency/{}/gbp_saliency_female.npy'.format(args.infer, current_fold), gbp_saliency_map_0)
+            np.save('{}/saliency/{}/gbp_saliency_male.npy'.format(args.infer, current_fold), gbp_saliency_map_1)
             np.save('{}/saliency/{}/cam_saliency_female.npy'.format(args.infer, current_fold), cam_saliency_map_0)
             np.save('{}/saliency/{}/cam_saliency_male.npy'.format(args.infer, current_fold), cam_saliency_map_1)
             np.save('{}/saliency/{}/gradcam_saliency_female.npy'.format(args.infer, current_fold), gradcam_saliency_map_0)
@@ -291,8 +292,8 @@ def main():
                     np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
                     np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
                     np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
-                    # np.save('results/{}/saliency/{}/gbp_saliency_female_early.npy'.format(args.exp, current_fold), gbp_saliency_map_0_early)
-                    # np.save('results/{}/saliency/{}/gbp_saliency_male_early.npy'.format(args.exp, current_fold), gbp_saliency_map_1_early)
+                    np.save('results/{}/saliency/{}/gbp_saliency_female_early.npy'.format(args.exp, current_fold), gbp_saliency_map_0_early)
+                    np.save('results/{}/saliency/{}/gbp_saliency_male_early.npy'.format(args.exp, current_fold), gbp_saliency_map_1_early)
                     np.save('results/{}/saliency/{}/cam_saliency_female_early.npy'.format(args.exp, current_fold), cam_saliency_map_0_early)
                     np.save('results/{}/saliency/{}/cam_saliency_male_early.npy'.format(args.exp, current_fold), cam_saliency_map_1_early)
                     np.save('results/{}/saliency/{}/gradcam_saliency_female_early.npy'.format(args.exp, current_fold), gradcam_saliency_map_0_early)
@@ -317,8 +318,8 @@ def main():
             grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
             np.save('results/{}/saliency/{}/grad_saliency_female.npy'.format(args.exp, current_fold), grad_saliency_map_0)
             np.save('results/{}/saliency/{}/grad_saliency_male.npy'.format(args.exp, current_fold), grad_saliency_map_1)
-            # np.save('results/{}/saliency/{}/gbp_saliency_female.npy'.format(args.exp, current_fold), gbp_saliency_map_0)
-            # np.save('results/{}/saliency/{}/gbp_saliency_male.npy'.format(args.exp, current_fold), gbp_saliency_map_1)
+            np.save('results/{}/saliency/{}/gbp_saliency_female.npy'.format(args.exp, current_fold), gbp_saliency_map_0)
+            np.save('results/{}/saliency/{}/gbp_saliency_male.npy'.format(args.exp, current_fold), gbp_saliency_map_1)
             np.save('results/{}/saliency/{}/cam_saliency_female.npy'.format(args.exp, current_fold), cam_saliency_map_0)
             np.save('results/{}/saliency/{}/cam_saliency_male.npy'.format(args.exp, current_fold), cam_saliency_map_1)
             np.save('results/{}/saliency/{}/gradcam_saliency_female.npy'.format(args.exp, current_fold), gradcam_saliency_map_0)

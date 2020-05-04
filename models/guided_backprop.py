@@ -49,8 +49,6 @@ class Guided_backprop(object):
             # backward grad_out = grad_out * (grad of forward output wrt. forward input)
             new_grad_out = positive_grad_out * grad
 
-            del self.forward_outputs[-1]
-
             # For hook functions, the returned value will be the new grad_out
             return (new_grad_out,)
 
@@ -69,12 +67,11 @@ class Guided_backprop(object):
         model_output, _ = self.model(batch_graph)
         self.model.zero_grad()
 
-        predicting_class = torch.zeros([1,2]).to(self.device)
+        predicting_class = torch.zeros([1,2]).to(self.model.device)
         predicting_class[0, target_class] = 1
 
         model_output.backward(predicting_class)
-        import ipdb; ipdb.set_trace()
-        return self.reconstruction
+        return self.model._last_input.grad
 
 
 
