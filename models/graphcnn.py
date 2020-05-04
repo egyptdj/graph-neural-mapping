@@ -607,13 +607,16 @@ class GCN_InfoMaxReg(nn.Module):
         pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
         score_over_layer = self.linears_prediction[-1](pooled_h)
 
+        weight = self.linears_prediction[-1].weight[cls]
+        class_activation += torch.matmul(h,weight)
+
         # predicting 0
         predicting_class = torch.zeros_like(score_over_layer).to(self.device)
         predicting_class[0, cls] = 1
         score_over_layer.backward(predicting_class)
         saliency = X_concat.grad
 
-        return saliency
+        return saliency, class_activation
 
 class GCN_Cheb(nn.Module):
     def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim, output_dim, final_dropout, dropout_layers, learn_eps, graph_pooling_type, neighbor_pooling_type, device):
@@ -866,6 +869,7 @@ class GCN_Cheb(nn.Module):
 
         pooled_h = torch.spmm(graph_pool, h) # [32,7], [32,64]x4
         score_over_layer = self.linears_prediction[-1](pooled_h)
+        class_activation = torch.zeros([X_concat.shape[0]]).to(self.device)
 
         # predicting 0
         predicting_class = torch.zeros_like(score_over_layer).to(self.device)

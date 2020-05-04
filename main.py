@@ -192,21 +192,29 @@ def main():
 
         if args.infer:
             model.load_state_dict(torch.load('{}/model/{}/model_early.pt'.format(args.infer, current_fold)))
-            acc_test, precision_test, recall_test = test(args, model, device, test_graphs)
-            print(f'FOLD {current_fold}: A [{acc_test}], P [{precision_test}], R [{recall_test}]')
-            latent_space_early, labels = get_latent_space(model, test_graphs)
             grad_saliency_map_0_early, cam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
             grad_saliency_map_1_early, cam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
-            np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
-            np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
-            np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
-            np.save('results/{}/saliency/{}/cam_saliency_female_early.npy'.format(args.exp, current_fold), cam_saliency_map_0_early)
-            np.save('results/{}/saliency/{}/cam_saliency_male_early.npy'.format(args.exp, current_fold), cam_saliency_map_1_early)
-            del latent_space_early
+            np.save('{}/saliency/{}/grad_saliency_female_early.npy'.format(args.infer, current_fold), grad_saliency_map_0_early)
+            np.save('{}/saliency/{}/grad_saliency_male_early.npy'.format(args.infer, current_fold), grad_saliency_map_1_early)
+            np.save('{}/saliency/{}/cam_saliency_female_early.npy'.format(args.infer, current_fold), cam_saliency_map_0_early)
+            np.save('{}/saliency/{}/cam_saliency_male_early.npy'.format(args.infer, current_fold), cam_saliency_map_1_early)
             del grad_saliency_map_0_early
             del grad_saliency_map_1_early
             del cam_saliency_map_0_early
             del cam_saliency_map_1_early
+            
+            model.load_state_dict(torch.load('{}/model/{}/model.pt'.format(args.infer, current_fold)))
+            grad_saliency_map_0, cam_saliency_map_0 = get_saliency_map(model, test_graphs, 0)
+            grad_saliency_map_1, cam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
+            np.save('{}/saliency/{}/grad_saliency_female.npy'.format(args.infer, current_fold), grad_saliency_map_0)
+            np.save('{}/saliency/{}/grad_saliency_male.npy'.format(args.infer, current_fold), grad_saliency_map_1)
+            np.save('{}/saliency/{}/cam_saliency_female.npy'.format(args.infer, current_fold), cam_saliency_map_0)
+            np.save('{}/saliency/{}/cam_saliency_male.npy'.format(args.infer, current_fold), cam_saliency_map_1)
+            del grad_saliency_map_0
+            del grad_saliency_map_1
+            del cam_saliency_map_0
+            del cam_saliency_map_1
+            
 
         else:
             optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
