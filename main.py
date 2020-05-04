@@ -12,7 +12,7 @@ from tqdm import tqdm
 from util import load_data, separate_data
 from models.graphcnn import *
 from models.initializer import *
-from models.guided_backprop import GuidedBackPropagation
+from models.guided_backprop import Guided_backprop
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -79,7 +79,7 @@ def pass_data_iteratively(model, graphs):
 
 def get_saliency_map(model, graphs, cls):
     model.eval()
-    # gbp = GuidedBackPropagation(model)
+    gbp = Guided_backprop(model)
     grad_saliency_maps=[]
     gbp_saliency_maps=[]
     cam_saliency_maps=[]
@@ -312,8 +312,8 @@ def main():
             test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
             torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, current_fold))
 
-            grad_saliency_map_0, gbp_saliency_map_0, cam_saliency_map_0, gradcam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
-            grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+            grad_saliency_map_0, gbp_saliency_map_0, cam_saliency_map_0, gradcam_saliency_map_0 = get_saliency_map(model, test_graphs, 0)
+            grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
             np.save('results/{}/saliency/{}/grad_saliency_female.npy'.format(args.exp, current_fold), grad_saliency_map_0)
             np.save('results/{}/saliency/{}/grad_saliency_male.npy'.format(args.exp, current_fold), grad_saliency_map_1)
             # np.save('results/{}/saliency/{}/gbp_saliency_female.npy'.format(args.exp, current_fold), gbp_saliency_map_0)

@@ -6,6 +6,72 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 
+class Guided_backprop(object):
+    """
+        Visualize CNN activation maps with guided backprop.
+
+        Returns: An image that represent what the network learnt for recognizing
+        the given image.
+
+        Methods: First layer input that minimize the error between the last layers output,
+        for the given class, and the true label(=1).
+
+        ! Call visualize(image) to get the image representation
+    """
+    def __init__(self,model):
+        self.model = model
+        self.reconstruction = None
+        self.activation_maps = []
+        # eval mode
+        self.model.eval()
+        self.register_hooks()
+
+    def register_hooks(self):
+
+        def first_layer_hook_fn(module, grad_out, grad_in):
+            """ Return reconstructed activation image"""
+            self.reconstruction = grad_out[0]
+
+        def forward_hook_fn(module, input, output):
+            """ Stores the forward pass outputs (activation maps)"""
+            self.activation_maps.append(output)
+
+        def backward_hook_fn(module, grad_out, grad_in):
+            """ Output the grad of model output wrt. layer (only positive) """
+
+            # Gradient of forward_output wrt. forward_input = error of activation map:
+                # for relu layer: grad of zero = 0, grad of identity = 1
+            grad = self.activation_maps[-1] # corresponding forward pass output
+            grad[grad>0] = 1 # grad of relu when > 0
+
+            # set negative output gradient to 0 #!???
+            positive_grad_out = torch.clamp(input=grad_out[0],min=0.0)
+
+            # backward grad_out = grad_out * (grad of forward output wrt. forward input)
+            new_grad_out = positive_grad_out * grad
+
+            del self.forward_outputs[-1]
+
+            # For hook functions, the returned value will be the new grad_out
+            return (new_grad_out,)
+
+        # !!!!!!!!!!!!!!!! change the modules !!!!!!!!!!!!!!!!!!
+        # only conv layers, no flattened fc linear layers
+        import ipdb; ipdb.set_trace()
+        modules = list(self.model.features._modules.items())
+
+        # register hooks to relu layers
+        for name, module in modules:
+            if isinstance(module, nn.ReLU):
+                module.register_forward_hook(forward_hook_fn)
+                module.register_backward_hook(backward_hook_fn)
+
+        # register hook to the first layer
+        first_layer = modules[0][1]
+        first_layer.register_backward_hook(first_layer_hook_fn)
+
+
+
 class _BaseWrapper(object):
     def __init__(self, model):
         super(_BaseWrapper, self).__init__()
