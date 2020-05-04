@@ -22,9 +22,8 @@ class Guided_backprop(object):
         self.model = model
         self.reconstruction = None
         self.activation_maps = []
+        self.hooks = []
         # eval mode
-        self.model.eval()
-        self.register_hooks()
 
     def register_hooks(self):
         def first_layer_hook_fn(module, grad_out, grad_in):
@@ -56,14 +55,16 @@ class Guided_backprop(object):
         # only conv layers, no flattened fc linear layers
 
         # register hooks to relu layers
-        self.model.relu.register_forward_hook(forward_hook_fn)
-        self.model.relu.register_backward_hook(backward_hook_fn)
+        self.hooks.append(self.model.relu.register_forward_hook(forward_hook_fn))
+        self.hooks.append(self.model.relu.register_backward_hook(backward_hook_fn))
 
         # register hook to the first layer
-        first_layer = self.model.mlps[0].linears[0]
-        first_layer.register_backward_hook(first_layer_hook_fn)
+        # first_layer = self.model.mlps[0].linears[0]
+        # first_layer.register_backward_hook(first_layer_hook_fn)
 
     def compute_saliency(self, batch_graph, target_class):
+        self.model.eval()
+        self.register_hooks()
         model_output, _ = self.model(batch_graph)
         self.model.zero_grad()
 
@@ -73,6 +74,10 @@ class Guided_backprop(object):
         model_output.backward(predicting_class)
         return self.model._last_input.grad
 
+    def release_hook(self):
+        for hook in self.hooks:
+            hook.remove()
+        self.hooks = []
 
 
 class _BaseWrapper(object):

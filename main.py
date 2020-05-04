@@ -78,18 +78,18 @@ def pass_data_iteratively(model, graphs):
         d_logit_list.append(d_logit)
     return torch.cat(c_logit_list, 0), torch.cat(d_logit_list, 0)
 
-def get_saliency_map(model, graphs, cls):
+def get_saliency_map(model, gbp, graphs, cls):
     model.eval()
-    gbp = Guided_backprop(copy.deepcopy(model))
     grad_saliency_maps=[]
     gbp_saliency_maps=[]
     cam_saliency_maps=[]
     gradcam_saliency_maps=[]
     for graph in graphs:
         gbp_map = gbp.compute_saliency([graph], cls)
+        gbp_saliency_maps.append(gbp_map.detach().cpu().numpy())
+        gbp.release_hook()
         grad_map, cam_map, gradcam_map = model.compute_saliency([graph], cls)
         grad_saliency_maps.append(grad_map.detach().cpu().numpy())
-        gbp_saliency_maps.append(gbp_map.detach().cpu().numpy())
         cam_saliency_maps.append(cam_map.detach().cpu().numpy())
         gradcam_saliency_maps.append(gradcam_map.detach().cpu().numpy())
 
@@ -198,13 +198,15 @@ def main():
         else:
             model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
 
+        gbp = Guided_backprop(model)
+
         if args.initializer:
             init_weights(model, init_type=args.initializer, init_gain=1.0)
 
         if args.infer:
             model.load_state_dict(torch.load('{}/model/{}/model_early.pt'.format(args.infer, current_fold)))
-            grad_saliency_map_0_early, gbp_saliency_map_0_early, cam_saliency_map_0_early, gradcam_saliency_map_0_early = get_saliency_map(model, test_graphs, 0)
-            grad_saliency_map_1_early, gbp_saliency_map_1_early, cam_saliency_map_1_early, gradcam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+            grad_saliency_map_0_early, gbp_saliency_map_0_early, cam_saliency_map_0_early, gradcam_saliency_map_0_early = get_saliency_map(model, gbp, test_graphs, 0)
+            grad_saliency_map_1_early, gbp_saliency_map_1_early, cam_saliency_map_1_early, gradcam_saliency_map_1_early = get_saliency_map(model, gbp, test_graphs, 1)
             np.save('{}/saliency/{}/grad_saliency_female_early.npy'.format(args.infer, current_fold), grad_saliency_map_0_early)
             np.save('{}/saliency/{}/grad_saliency_male_early.npy'.format(args.infer, current_fold), grad_saliency_map_1_early)
             np.save('{}/saliency/{}/gbp_saliency_female_early.npy'.format(args.infer, current_fold), gbp_saliency_map_0_early)
@@ -221,8 +223,8 @@ def main():
             del gradcam_saliency_map_1_early
 
             model.load_state_dict(torch.load('{}/model/{}/model.pt'.format(args.infer, current_fold)))
-            grad_saliency_map_0, gbp_saliency_map_0, cam_saliency_map_0, gradcam_saliency_map_0 = get_saliency_map(model, test_graphs, 0)
-            grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
+            grad_saliency_map_0, gbp_saliency_map_0, cam_saliency_map_0, gradcam_saliency_map_0 = get_saliency_map(model, gbp, test_graphs, 0)
+            grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, gbp, test_graphs, 1)
             np.save('{}/saliency/{}/grad_saliency_female.npy'.format(args.infer, current_fold), grad_saliency_map_0)
             np.save('{}/saliency/{}/grad_saliency_male.npy'.format(args.infer, current_fold), grad_saliency_map_1)
             np.save('{}/saliency/{}/gbp_saliency_female.npy'.format(args.infer, current_fold), gbp_saliency_map_0)
@@ -287,8 +289,8 @@ def main():
                     torch.save(model.state_dict(), 'results/{}/model/{}/model_early.pt'.format(args.exp, current_fold))
 
                     latent_space_early, labels = get_latent_space(model, test_graphs)
-                    grad_saliency_map_0_early, gbp_saliency_map_0_early, cam_saliency_map_0_early, gradcam_saliency_map_0_early  = get_saliency_map(model, test_graphs, 0)
-                    grad_saliency_map_1_early, gbp_saliency_map_1_early, cam_saliency_map_1_early, gradcam_saliency_map_1_early = get_saliency_map(model, test_graphs, 1)
+                    grad_saliency_map_0_early, gbp_saliency_map_0_early, cam_saliency_map_0_early, gradcam_saliency_map_0_early  = get_saliency_map(model, gbp, test_graphs, 0)
+                    grad_saliency_map_1_early, gbp_saliency_map_1_early, cam_saliency_map_1_early, gradcam_saliency_map_1_early = get_saliency_map(model, gbp, test_graphs, 1)
                     np.save('results/{}/latent/{}/latent_space_early.npy'.format(args.exp, current_fold), latent_space_early)
                     np.save('results/{}/saliency/{}/grad_saliency_female_early.npy'.format(args.exp, current_fold), grad_saliency_map_0_early)
                     np.save('results/{}/saliency/{}/grad_saliency_male_early.npy'.format(args.exp, current_fold), grad_saliency_map_1_early)
@@ -314,8 +316,8 @@ def main():
             test_summary_writer.add_scalar('metrics/recall', recall_test, epoch)
             torch.save(model.state_dict(), 'results/{}/model/{}/model.pt'.format(args.exp, current_fold))
 
-            grad_saliency_map_0, gbp_saliency_map_0, cam_saliency_map_0, gradcam_saliency_map_0 = get_saliency_map(model, test_graphs, 0)
-            grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, test_graphs, 1)
+            grad_saliency_map_0, gbp_saliency_map_0, cam_saliency_map_0, gradcam_saliency_map_0 = get_saliency_map(model, gbp, test_graphs, 0)
+            grad_saliency_map_1, gbp_saliency_map_1, cam_saliency_map_1, gradcam_saliency_map_1 = get_saliency_map(model, gbp, test_graphs, 1)
             np.save('results/{}/saliency/{}/grad_saliency_female.npy'.format(args.exp, current_fold), grad_saliency_map_0)
             np.save('results/{}/saliency/{}/grad_saliency_male.npy'.format(args.exp, current_fold), grad_saliency_map_1)
             np.save('results/{}/saliency/{}/gbp_saliency_female.npy'.format(args.exp, current_fold), gbp_saliency_map_0)
