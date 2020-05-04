@@ -315,7 +315,7 @@ class GIN_InfoMaxReg(nn.Module):
         score_over_layer.backward(predicting_class)
         saliency = X_concat.grad
 
-        return saliency, class_activation, grad_class_activation
+        return saliency, class_activation, F.relu(grad_class_activation)
 
 
 class GCN_InfoMaxReg(nn.Module):
