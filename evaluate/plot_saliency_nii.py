@@ -18,7 +18,7 @@ def main():
 
     os.makedirs(os.path.join(opt.expdir, opt.savedir), exist_ok=True)
 
-    roiimg = nib.load(opt.roidir)
+    roiimg = nil.image.load_img(opt.roidir)
     roiimgarray = roiimg.get_fdata()
     roiimgaffine = roiimg.affine
     roimeta = pd.read_csv(opt.roimetadir, index_col=0, header=None, delimiter='\t')
@@ -340,7 +340,10 @@ def plot_nii(subject_list, topk, roiimgaffine, roiimgarray, roimeta, savepath, d
         saliency_array_normalized_topk = saliency_array_normalized.copy()
         saliency_array_normalized_topk[saliency_array_normalized_topk<topk_value]=0.0
         saliency_img_normalized_topk = nib.Nifti1Image(saliency_array_normalized_topk, roiimgaffine)
+        saliency_img_normalized_topk_smoothed = nil.image.smooth_img(saliency_img_normalized_topk, 6)
+
         nib.save(saliency_img_normalized_topk, os.path.join(savepath, 'saliency_{}_top{}.nii'.format(desc, topk)))
+        nib.save(saliency_img_normalized_topk_smooth, os.path.join(savepath, 'saliency_{}_top{}_smooth.nii'.format(desc, topk)))
         del saliency_array_normalized_topk
         del saliency_img_normalized_topk
 
