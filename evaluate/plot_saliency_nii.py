@@ -345,12 +345,11 @@ def plot_nii(subject_list, topk, roiimgaffine, roiimgarray, roimeta, savepath, d
         saliency_img_normalized_topk = nib.Nifti1Image(saliency_array_normalized_topk, roiimgaffine)
 
         nib.save(saliency_img_normalized_topk, os.path.join(savepath, 'saliency_{}_top{}.nii'.format(desc, topk)))
-        del saliency_array_normalized_topk
-        del saliency_img_normalized_topk
 
         saliency_values = np.unique(saliency_array_normalized_topk)
-        network_dicts = {'Vis':[], 'SomMot':[], 'DorsAttn':[], 'SalVentAttn':[], 'Limbic':[], 'Cont':[], 'Default':[]}
+        network_dicts = {'Vis':np.zeros_like(saliency_array), 'SomMot':np.zeros_like(saliency_array), 'DorsAttn':np.zeros_like(saliency_array), 'SalVentAttn':np.zeros_like(saliency_array), 'Limbic':np.zeros_like(saliency_array), 'Cont':np.zeros_like(saliency_array), 'Default':np.zeros_like(saliency_array)}
         for value in saliency_values:
+            if value==0.0: continue
             roi_array = saliency_array_normalized_topk.copy()
             roi_array[saliency_array_normalized_topk!=value] = 0.0
             idx_tuple = np.nonzero(roi_array)
@@ -358,10 +357,13 @@ def plot_nii(subject_list, topk, roiimgaffine, roiimgarray, roimeta, savepath, d
             roi_network = roimeta[1][roi_id]
             for key in network_dicts.keys():
                 if key in roi_network:
-                    network_dicts[key].append(roi_array)
+                    network_dicts[key] += roi_array
         for key in network_dicts.keys():
-            network_img = nib.Nifti1Image(np.sum(network_dicts[key]), roiimgaffine)
+            network_img = nib.Nifti1Image(network_dicts[key], roiimgaffine)
             nib.save(network_img, os.path.join(savepath, 'network', 'saliency_{}_top{}_{}'.format(desc, topk, key)))
+        
+        del saliency_array_normalized_topk
+        del saliency_img_normalized_topk
 
     saliency_img = nib.Nifti1Image(saliency_array, roiimgaffine)
     saliency_img_normalized = nib.Nifti1Image(saliency_array_normalized, roiimgaffine)
