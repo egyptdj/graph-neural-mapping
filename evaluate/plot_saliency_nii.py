@@ -18,6 +18,8 @@ def main():
     opt = parser.parse_args()
 
     os.makedirs(os.path.join(opt.expdir, opt.savedir), exist_ok=True)
+    os.makedirs(os.path.join(opt.expdir, opt.savedir, 'network'), exist_ok=True)
+    os.makedirs(os.path.join(opt.expdir, opt.savedir, 'description'), exist_ok=True)
 
     roiimg = nil.image.load_img(opt.roidir)
     roiimgarray = roiimg.get_fdata()
@@ -341,12 +343,25 @@ def plot_nii(subject_list, topk, roiimgaffine, roiimgarray, roimeta, savepath, d
         saliency_array_normalized_topk = saliency_array_normalized.copy()
         saliency_array_normalized_topk[saliency_array_normalized_topk<topk_value]=0.0
         saliency_img_normalized_topk = nib.Nifti1Image(saliency_array_normalized_topk, roiimgaffine)
-        saliency_img_normalized_topk_smoothed = nil.image.smooth_img(saliency_img_normalized_topk, 6)
 
         nib.save(saliency_img_normalized_topk, os.path.join(savepath, 'saliency_{}_top{}.nii'.format(desc, topk)))
-        nib.save(saliency_img_normalized_topk_smooth, os.path.join(savepath, 'saliency_{}_top{}_smooth.nii'.format(desc, topk)))
         del saliency_array_normalized_topk
         del saliency_img_normalized_topk
+
+        saliency_values = np.unique(saliency_array_normalized_topk)
+        network_dicts = {'Vis':[], 'SomMot':[], 'DorsAttn':[], 'SalVentAttn':[], 'Limbic':[], 'Cont':[], 'Default':[]}
+        for value in saliency_values:
+            roi_array = saliency_array_normalized_topk.copy()
+            roi_array[saliency_array_normalized_topk!=value] = 0.0
+            idx_tuple = np.nonzero(roi_array)
+            roi_id = roiimgarray[idx_tuple[0][0], idx_tuple[1][0], idx_tuple[2][0]]
+            roi_network = roimeta[1][roi_id]
+            for key in network_dicts.keys():
+                if key in roi_network:
+                    network_dicts[key].append(roi_array)
+        for key in network_dicts.keys():
+            network_img = nib.Nifti1Image(np.sum(network_dicts[key]), roiimgaffine)
+            nib.save(network_img, os.path.join(savepath, 'network', 'saliency_{}_top{}_{}'.format(desc, topk, key)))
 
     saliency_img = nib.Nifti1Image(saliency_array, roiimgaffine)
     saliency_img_normalized = nib.Nifti1Image(saliency_array_normalized, roiimgaffine)
@@ -398,7 +413,7 @@ def write_csv(normalized_array, roiimgarray, roimeta, savepath, desc, threshold=
     zipped = list(zip(abs_values, rois, labels, values))
     zipped.sort(reverse=True)
 
-    with open(os.path.join(savepath, 'saliency_{}.csv'.format(desc)), 'w') as f:
+    with open(os.path.join(savepath, 'description', 'saliency_{}.csv'.format(desc)), 'w') as f:
         f.write('abs_value,roi,label,value\n')
         for item in zipped:
             f.write(','.join(item))
