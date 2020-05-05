@@ -51,7 +51,7 @@ def main():
     cam_nii_list = [os.path.join(opt.expdir, opt.saliencydir, f'saliency_normalized_cam_female_early.nii'),
                 os.path.join(opt.expdir, opt.saliencydir, f'saliency_normalized_cam_male_early.nii')]
 
-    decoded_semantics = decoder.decode(cam_nii_list, save=os.path.join(opt.expdir, opt.savedir, f'cam_decoded_table.csv')
+    decoded_semantics = decoder.decode(cam_nii_list, save=os.path.join(opt.expdir, opt.savedir, f'cam_decoded_table.csv'))
     decoded_semantics_dict = decoded_semantics.to_dict()
     decoded_semantics_abs_dict = decoded_semantics.abs().to_dict()
 
