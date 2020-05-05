@@ -28,12 +28,10 @@ def main():
             pickle.dump(decoder, f, protocol=4)
 
     # decode grad saliency
-    grad_nii_list = [f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_grad_female_early.nii',
-                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_grad_male_early.nii',
-                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_grad_female_femalesubj_early.nii',
-                f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_grad_male_malesubj_early.nii']
+    grad_nii_list = [os.path.join(opt.expdir, opt.saliencydir, 'saliency_normalized_grad_female_early.nii'),
+                os.path.join(opt.expdir, opt.saliencydir, 'saliency_normalized_grad_male_early.nii')]
 
-    decoded_semantics = decoder.decode(grad_nii_list, save=f'{opt.expdir}/{opt.savedir}/grad_decoded_table.csv')
+    decoded_semantics = decoder.decode(grad_nii_list, save=os.path.join(opt.expdir, opt.savedir, 'grad_decoded_table.csv'))
     decoded_semantics_dict = decoded_semantics.to_dict()
     decoded_semantics_abs_dict = decoded_semantics.abs().to_dict()
 
@@ -41,14 +39,14 @@ def main():
     for nii in grad_nii_list:
         fname = '_'.join(nii.split('/')[-1].split('.')[0].split('_')[2:])
         cloud = wordcloud.generate_from_frequencies(decoded_semantics_dict[nii])
-        cloud.to_file(f'{opt.expdir}/{opt.savedir}/{fname}.png')
+        cloud.to_file(os.path.join(opt.expdir, opt.savedir, f'{fname}.png'))
         del cloud
         cloud_abs = wordcloud.generate_from_frequencies(decoded_semantics_abs_dict[nii])
-        cloud_abs.to_file(f'{opt.expdir}/{opt.savedir}/{fname}_abs.png')
+        cloud_abs.to_file(os.path.join(opt.expdir, ot.savedir, f'{fname}_abs.png'))
         del cloud_abs
 
     del decoded_semantics
-    
+
     # decode cam saliency
     cam_nii_list = [f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_cam_female_early.nii',
                 f'{opt.expdir}/{opt.saliencydir}/saliency_normalized_cam_male_early.nii',
