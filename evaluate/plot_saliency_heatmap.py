@@ -19,6 +19,7 @@ def main():
     np.random.seed(opt.seed)
     plt.style.use('ggplot')
     sns.set_style('ticks')
+    sns.set_context('paper', font_scale=4)
 
     # plot gradient based saliency
     saliency0 = []
@@ -46,7 +47,12 @@ def main():
     ticks[0] = 0
     for i, saliency in enumerate(female_subjects):
         fig, ax = plt.subplots()
-        ax = sns.heatmap(saliency, cmap='coolwarm', yticklabels=50, square=True)
+        if i==0:
+            fig.set_size_inches((24, 21))
+            ax = sns.heatmap(saliency, cmap='Greys', yticklabels=50, square=True)
+        else:
+            fig.set_size_inches((15, 15))
+            ax = sns.heatmap(saliency, cmap='Greys', yticklabels=50, square=True, cbar=False)
 
         # ax.set_xlabel('Node index')
         # ax.set_ylabel('Node feature')
@@ -70,7 +76,12 @@ def main():
 
     for i, saliency in enumerate(male_subjects):
         fig, ax = plt.subplots()
-        ax = sns.heatmap(saliency, cmap='coolwarm', yticklabels=50, square=True)
+        if i==0:
+            fig.set_size_inches((24, 21))
+            ax = sns.heatmap(saliency, cmap='Greys', yticklabels=50, square=True)
+        else:
+            fig.set_size_inches((15, 15))
+            ax = sns.heatmap(saliency, cmap='Greys', yticklabels=50, square=True, cbar=False)
 
         # ax.set_xlabel('Node index')
         # ax.set_ylabel('Node feature')
