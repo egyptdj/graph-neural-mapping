@@ -11,6 +11,7 @@ from sklearn.metrics import silhouette_score
 def main():
     parser = argparse.ArgumentParser(description='Plot the t-SNE embedding the latent space')
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path containing the latent_space_*.npy')
+    parser.add_argument('--latentdir', type=str, default='latent', help='path to save the plotted tsne files within the expdir')
     parser.add_argument('--savedir', type=str, default='tsne', help='path to save the plotted tsne files within the expdir')
     parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
     parser.add_argument('--perplexities', nargs='+', default=['5', '30', '50', '70', '100'], help='tsne perplexities')
@@ -26,12 +27,13 @@ def main():
     labels = []
 
     for current_fold in opt.fold_idx:
-        latent_space_initial.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'latent_space_initial.npy')))
-        latent_space_early.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'latent_space_early.npy')))
-        latent_space_final.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'latent_space_final.npy')))
-        labels.append(np.load(os.path.join(opt.expdir, 'latent', str(current_fold), 'labels.npy')))
+        latent_space_initial.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space_initial.npy')))
+        latent_space_early.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space_early.npy')))
+        latent_space_final.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space_final.npy')))
+        labels.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'labels.npy')))
 
     for perplexity in opt.perplexities:
+        print('PLOTTING PER-FOLD LATENT SPACE PERPLEXITY: {}'.format(perplexity))
         for idx, _ in enumerate(labels):
             plot_tsne(latent_space_initial[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
             plot_tsne(latent_space_early[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
@@ -43,6 +45,7 @@ def main():
     labels = np.concatenate(labels, 0).squeeze()
 
     for perplexity in opt.perplexities:
+        print('PLOTTING FULL-FOLD LATENT SPACE PERPLEXITY: {}'.format(perplexity))
         plot_tsne(latent_space_initial, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_full'.format(perplexity), opt.random_state)
         plot_tsne(latent_space_early, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_full'.format(perplexity), opt.random_state)
         plot_tsne(latent_space_final, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_full'.format(perplexity), opt.random_state)
