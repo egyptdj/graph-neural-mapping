@@ -347,7 +347,8 @@ def plot_nii(subject_list, topk, roiimgaffine, roiimgarray, roimeta, savepath, d
         nib.save(saliency_img_normalized_topk, os.path.join(savepath, 'saliency_{}_top{}.nii'.format(desc, topk)))
 
         saliency_values = np.unique(saliency_array_normalized_topk)
-        network_dicts = {'Vis':np.zeros_like(saliency_array), 'SomMot':np.zeros_like(saliency_array), 'DorsAttn':np.zeros_like(saliency_array), 'SalVentAttn':np.zeros_like(saliency_array), 'Limbic':np.zeros_like(saliency_array), 'Cont':np.zeros_like(saliency_array), 'Default':np.zeros_like(saliency_array)}
+
+        network_dicts = {'Vis':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}, 'SomMot':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}, 'DorsAttn':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}, 'SalVentAttn':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}, 'Limbic':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}, 'Cont':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}, 'Default':{'LH': np.zeros_like(saliency_array), 'RH': np.zeros_like(saliency_array)}}
         for value in saliency_values:
             if value==0.0: continue
             roi_array = saliency_array_normalized_topk.copy()
@@ -357,13 +358,23 @@ def plot_nii(subject_list, topk, roiimgaffine, roiimgarray, roimeta, savepath, d
             roi_network = roimeta[1][roi_id]
             for key in network_dicts.keys():
                 if key in roi_network:
-                    network_dicts[key] += roi_array
+                    if 'LH' in roi_network:
+                        network_dicts[key]['LH'] += roi_array
+                    elif 'RH' in roi_network:
+                        network_dicts[key]['RH'] += roi_array
+                    else:
+                        print('ERROR IDENTIFYING HEMISPHERE INFORMATION')
         for key in network_dicts.keys():
-            network_img = nib.Nifti1Image(network_dicts[key], roiimgaffine)
-            nib.save(network_img, os.path.join(savepath, 'network', 'saliency_{}_top{}_{}'.format(desc, topk, key)))
-        
+            network_lh_img = nib.Nifti1Image(network_dicts[key]['LH'], roiimgaffine)
+            nib.save(network_lh_img, os.path.join(savepath, 'network', 'saliency_{}_top{}_{}_lh'.format(desc, topk, key)))
+            network_rh_img = nib.Nifti1Image(network_dicts[key]['RH'], roiimgaffine)
+            nib.save(network_rh_img, os.path.join(savepath, 'network', 'saliency_{}_top{}_{}_rh'.format(desc, topk, key)))
+
         del saliency_array_normalized_topk
         del saliency_img_normalized_topk
+        del network_dicts
+        del network_lh_img
+        del network_rh_img
 
     saliency_img = nib.Nifti1Image(saliency_array, roiimgaffine)
     saliency_img_normalized = nib.Nifti1Image(saliency_array_normalized, roiimgaffine)

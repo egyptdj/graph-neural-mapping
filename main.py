@@ -175,12 +175,13 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
-    try:
-        graphs = torch.load('data/graphs_sparsity{}.pt'.format(args.sparsity))
-        num_classes = 2
-    except:
-        graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
-        torch.save(graphs, 'data/graphs_sparsity{}.pt'.format(args.sparsity))
+    # try:
+    #     graphs = torch.load('data/graphs_sparsity{}.pt'.format(args.sparsity))
+    #     num_classes = 2
+    # except:
+    #     graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
+    #     torch.save(graphs, 'data/graphs_sparsity{}.pt'.format(args.sparsity))
+    graphs, num_classes = load_data(args.preprocessing, args.run, args.rois, args.sparsity, args.input_feature)
 
     for current_fold in args.fold_idx:
         current_fold = int(current_fold)
