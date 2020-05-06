@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--latentdir', type=str, default='latent', help='path to save the plotted tsne files within the expdir')
     parser.add_argument('--savedir', type=str, default='tsne', help='path to save the plotted tsne files within the expdir')
     parser.add_argument('--fold_idx', nargs='+', default=['0','1','2','3','4','5','6','7','8','9'], help='fold indices')
-    parser.add_argument('--perplexities', nargs='+', default=['5', '30', '50', '70', '100'], help='tsne perplexities')
+    parser.add_argument('--perplexities', nargs='+', default=['50'], help='tsne perplexities')
     parser.add_argument('--random_state', type=int, default=0, help='tsne random state')
 
     opt = parser.parse_args()
@@ -60,12 +60,14 @@ def plot_tsne(latent, label, perplexity, savedir, savename, random_state=0):
     female = y == 0
     male = y == 1
 
-    fig = plt.figure(figsize=(18, 18))
+    fig, ax = plt.subplots()
+    fig.set_size_inches((8,8))
+    ax.axis('off')
     tsne = manifold.TSNE(n_components=n_components, init='random',
                          random_state=random_state, perplexity=perplexity)
     Y = tsne.fit_transform(X)
-    plt.scatter(Y[female, 0], Y[female, 1], c="r", s=1000, linewidth=2, edgecolors='black')
-    plt.scatter(Y[male, 0], Y[male, 1], c="g", s=1000, linewidth=2, edgecolors='black')
+    plt.scatter(Y[female, 0], Y[female, 1], c="r", s=1000, linewidth=3, edgecolors='black')
+    plt.scatter(Y[male, 0], Y[male, 1], c="b", s=1000, linewidth=3, edgecolors='black')
     plt.axis('tight')
     plt.savefig(os.path.join(savedir, savename))
     plt.clf()
