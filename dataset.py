@@ -27,7 +27,6 @@ class DataBehavioral(object):
         return behavioral_features, behavioral_label # dict {subject: feature_string} / dict {subject: label}
 
 
-
 # Class of nodes, i.e. ROI features
 class DataNodes(object):
     def __init__(self, roi):
@@ -76,15 +75,6 @@ class DataNodes(object):
             node_label = {}
             for i, timeseries in enumerate(node_label_numpy):
                 node_label[i] = tuple([timeseries])
-            return node_label_numpy, node_label
-
-
-        elif type=='timeseries_bold':
-            node_label_numpy = self.df_timeseries.T
-            node_label = {}
-            for i, timeseries in enumerate(node_label_numpy):
-                timeseries = (timeseries - timeseries.mean()) / (timeseries.std() + 1e-8)
-                node_label[i] = tuple(timeseries)
             return node_label_numpy, node_label
 
         else:

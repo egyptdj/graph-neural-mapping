@@ -34,8 +34,8 @@ def visualize_axial(niidir, savedir, min=0.75, max=1.0):
     for method in ['grad', 'cam']:
         for network in ['Vis', 'SomMot', 'DorsAttn', 'SalVentAttn', 'Limbic', 'Cont', 'Default']:
             for gender in ['female', 'male']:
-                gl.overlayload(os.path.join(niidir, 'network', 'saliency_{}_{}_early_top20_{}_lh'.format(method, gender, network)))
-                gl.overlayload(os.path.join(niidir, 'network', 'saliency_{}_{}_early_top20_{}_rh'.format(method, gender, network)))
+                gl.overlayload(os.path.join(niidir, 'network', 'saliency_{}_{}_top20_{}_lh'.format(method, gender, network)))
+                gl.overlayload(os.path.join(niidir, 'network', 'saliency_{}_{}_top20_{}_rh'.format(method, gender, network)))
                 gl.minmax(1, min, max)
                 gl.minmax(2, min, max)
                 gl.colorname(1, colorname)
@@ -48,18 +48,17 @@ def visualize_sagittal(niidir, savedir, min=0.75, max=1.0):
     for hemisphere in ['lh', 'rh']:
         if hemisphere =='lh': gl.clipazimuthelevation(0.49, 90, 0)
         elif hemisphere =='rh': gl.clipazimuthelevation(0.49, 270, 0)
-        for method in ['grad', 'cam']:
-            for network in ['Vis', 'SomMot', 'DorsAttn', 'SalVentAttn', 'Limbic', 'Cont', 'Default']:
-                for gender in ['female', 'male']:
-                    gl.overlayload(os.path.join(niidir, 'network', 'saliency_{}_{}_early_top20_{}_{}'.format(method, gender, network, hemisphere)))
-                    gl.minmax(1, min, max)
-                    gl.colorname(1, colorname)
+        for network in ['Vis', 'SomMot', 'DorsAttn', 'SalVentAttn', 'Limbic', 'Cont', 'Default']:
+            for gender in ['female', 'male']:
+                gl.overlayload(os.path.join(niidir, 'network', 'saliency_{}_top20_{}_{}'.format(method, gender, network, hemisphere)))
+                gl.minmax(1, min, max)
+                gl.colorname(1, colorname)
 
-                    gl.viewsagittal(1)
-                    gl.savebmp(os.path.join(savedir, '{}_{}_{}_sagittal_{}_lt.png'.format(method, network, gender, hemisphere)))
-                    gl.viewsagittal(0)
-                    gl.savebmp(os.path.join(savedir, '{}_{}_{}_sagittal_{}_rt.png'.format(method, network, gender, hemisphere)))
-                    gl.overlaycloseall()
+                gl.viewsagittal(1)
+                gl.savebmp(os.path.join(savedir, '{}_{}_sagittal_{}_lt.png'.format(network, gender, hemisphere)))
+                gl.viewsagittal(0)
+                gl.savebmp(os.path.join(savedir, '{}_{}_sagittal_{}_rt.png'.format(network, gender, hemisphere)))
+                gl.overlaycloseall()
 
 def visualize_colorbar(savedir, min=0.75, max=1.0):
     gl.resetdefaults()

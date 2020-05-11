@@ -7,7 +7,7 @@ import pandas as pd
 def main():
     parser = argparse.ArgumentParser(description='compute robustness of the saliency mapping')
     parser.add_argument('--expdir', type=str, default='results/graph_neural_mapping', help='path to the experiment results')
-    parser.add_argument('--saliency', type=str, default='saliency_normalized_grad_female_early', help='path to the experiment results')
+    parser.add_argument('--saliency', type=str, default='saliency_female', help='path to the experiment results')
     parser.add_argument('--topk', type=int, default=20, help='top k items to compare robustness')
     opt = parser.parse_args()
 
@@ -31,11 +31,8 @@ def main():
 
     print('===='*12)
     print('===='*12)
-    print(f'=== {opt.saliency} ===')
-    # print(f'one fold matches {full_one_match_mean} out of {opt.topk}. robustness: {one_folds_robustness}+{one_folds_robustness_std:.2f}%')
-    # print(f'five fold matches {full_five_match_mean} out of {opt.topk}. robustness: {five_folds_robustness}+{five_folds_robustness_std:.2f}%')
-    print(f'{full_one_match}')
-    print(f'{full_five_match}')
+    print(f'one fold matches {full_one_match_mean} out of {opt.topk}. robustness: {one_folds_robustness}+{one_folds_robustness_std:.2f}%')
+    print(f'five fold matches {full_five_match_mean} out of {opt.topk}. robustness: {five_folds_robustness}+{five_folds_robustness_std:.2f}%')
     print('===='*12)
     print('===='*12)
 

@@ -22,33 +22,28 @@ def main():
     os.makedirs(os.path.join(opt.expdir, opt.savedir), exist_ok=True)
 
     latent_space_initial = []
-    latent_space_early = []
-    latent_space_final = []
+    latent_space = []
     labels = []
 
     for current_fold in opt.fold_idx:
         latent_space_initial.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space_initial.npy')))
-        latent_space_early.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space_early.npy')))
-        latent_space_final.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space_final.npy')))
+        latent_space.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'latent_space.npy')))
         labels.append(np.load(os.path.join(opt.expdir, opt.latentdir, str(current_fold), 'labels.npy')))
 
     for perplexity in opt.perplexities:
         print('PLOTTING PER-FOLD LATENT SPACE PERPLEXITY: {}'.format(perplexity))
         for idx, _ in enumerate(labels):
             plot_tsne(latent_space_initial[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
-            plot_tsne(latent_space_early[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
-            plot_tsne(latent_space_final[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
+            plot_tsne(latent_space[idx], labels[idx], int(perplexity), os.path.join(opt.expdir, opt.savedir), 'latent_perp{}_fold{}'.format(perplexity, idx), opt.random_state)
 
     latent_space_initial = np.concatenate(latent_space_initial, 0)
-    latent_space_early = np.concatenate(latent_space_early, 0)
-    latent_space_final = np.concatenate(latent_space_final, 0)
+    latent_space = np.concatenate(latent_space, 0)
     labels = np.concatenate(labels, 0).squeeze()
 
     for perplexity in opt.perplexities:
         print('PLOTTING FULL-FOLD LATENT SPACE PERPLEXITY: {}'.format(perplexity))
         plot_tsne(latent_space_initial, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'initial_latent_perp{}_full'.format(perplexity), opt.random_state)
-        plot_tsne(latent_space_early, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'early_latent_perp{}_full'.format(perplexity), opt.random_state)
-        plot_tsne(latent_space_final, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'final_latent_perp{}_full'.format(perplexity), opt.random_state)
+        plot_tsne(latent_space, labels, int(perplexity), os.path.join(opt.expdir, opt.savedir), 'latent_perp{}_full'.format(perplexity), opt.random_state)
 
 
 def plot_tsne(latent, label, perplexity, savedir, savename, random_state=0):

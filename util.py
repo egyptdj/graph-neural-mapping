@@ -33,10 +33,6 @@ def load_data(preprocessing, run, rois, threshold, type):
     for i, subject in enumerate(subject_list):
         if 'bold' in type: roi(subject)
         _, node_labels = roi.get_feature(type)
-        if 'timeseries' in type:
-            if len(node_labels[0]) < 1200:
-                print('TRUNCATED TIMESERIES: {}'.format(subject))
-                continue
         connectivity(preprocessing, run, rois, subject)
         _, connection = connectivity.get_adjacency(100-threshold)
         n = node_labels

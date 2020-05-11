@@ -14,48 +14,27 @@ def main():
 
     os.makedirs(os.path.join(opt.expdir, opt.savedir), exist_ok=True)
 
-    final = {'accuracy':[], 'precision':[], 'recall':[]}
-    early = {'accuracy':[], 'precision':[], 'recall':[]}
-    epoch = {'accuracy':[], 'precision':[], 'recall':[]}
+    accuracy = []
+    precision = []
+    recall = []
     for current_fold in opt.fold_idx:
         performance_table = pd.read_csv(os.path.join(opt.expdir, 'csv', str(current_fold), 'result.csv'))[['accuracy', 'precision', 'recall']]
-        performance_per_epochs = pd.read_csv(os.path.join(opt.expdir, 'csv', str(current_fold), 'test_sequence.csv'), header=None)[[1,2,3]]
 
-        final['accuracy'].append(performance_table.iloc[0]['accuracy'])
-        final['precision'].append(performance_table.iloc[0]['precision'])
-        final['recall'].append(performance_table.iloc[0]['recall'])
-        early['accuracy'].append(performance_table.iloc[1]['accuracy'])
-        early['precision'].append(performance_table.iloc[1]['precision'])
-        early['recall'].append(performance_table.iloc[1]['recall'])
-        epoch['accuracy'].append(performance_per_epochs[1].to_list())
-        epoch['precision'].append(performance_per_epochs[2].to_list())
-        epoch['recall'].append(performance_per_epochs[3].to_list())
+        accuracy.append(performance_table.iloc[0]['accuracy'])
+        precision.append(performance_table.iloc[0]['precision'])
+        recall.append(performance_table.iloc[0]['recall'])
 
-    final_accuracy = np.mean(final['accuracy'])
-    final_precision = np.mean(final['precision'])
-    final_recall = np.mean(final['recall'])
-    final_accuracy_std = np.std(final['accuracy'])
-    final_precision_std = np.std(final['precision'])
-    final_recall_std = np.std(final['recall'])
-    early_accuracy = np.mean(early['accuracy'])
-    early_precision = np.mean(early['precision'])
-    early_recall = np.mean(early['recall'])
-    early_accuracy_std = np.std(early['accuracy'])
-    early_precision_std = np.std(early['precision'])
-    early_recall_std = np.std(early['recall'])
-    epoch_accuracy = np.max(np.mean(np.asarray(epoch['accuracy']), axis=0))
-    epoch_precision = np.max(np.mean(np.asarray(epoch['precision']), axis=0))
-    epoch_recall = np.max(np.mean(np.asarray(epoch['recall']), axis=0))
+    accuracy = np.mean(accuracy)
+    precision = np.mean(precision)
+    recall = np.mean(recall)
+    accuracy_std = np.std(accuracy)
+    precision_std = np.std(precision)
+    recall_std = np.std(recall)
 
     with open(os.path.join(opt.expdir, opt.savedir, 'result_summary.csv'), 'w') as f:
-        f.write(','.join(['method', 'accuracy', 'precision', 'recall', 'accuracy_std', 'precision_std', 'recall_std']))
+        f.write(','.join(['accuracy', 'precision', 'recall', 'accuracy_std', 'precision_std', 'recall_std']))
         f.write("\n")
-        f.write(','.join(['early', str(early_accuracy), str(early_precision), str(early_recall), str(early_accuracy_std), str(early_precision_std), str(early_recall_std)]))
-        f.write("\n")
-        f.write(','.join(['final', str(final_accuracy), str(final_precision), str(final_recall), str(final_accuracy_std), str(final_accuracy_std), str(final_recall_std)]))
-        f.write("\n")
-        f.write(','.join(['epoch', str(epoch_accuracy), str(epoch_precision), str(epoch_recall)]))
-        f.write("\n")
+        f.write(','.join([str(early_accuracy), str(early_precision), str(early_recall), str(early_accuracy_std), str(early_precision_std), str(early_recall_std)]))
 
 if __name__ == '__main__':
     main()
