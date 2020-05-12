@@ -1,21 +1,18 @@
 import os
 import csv
 import argparse
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import numpy as np
-import copy
 
 from tqdm import tqdm
-
-from util import load_data, separate_data
-from models.graphcnn import *
-
+from sklearn import metrics
 from torch.utils.tensorboard import SummaryWriter
 
-from sklearn import metrics
+from models.graphcnn import *
+from util import load_data, separate_data
+
 
 c_criterion = nn.CrossEntropyLoss()
 d_criterion = nn.BCEWithLogitsLoss()
