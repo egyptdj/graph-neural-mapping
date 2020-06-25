@@ -11,7 +11,7 @@ from classifier import Classifier
 
 
 class GIN_InfoMaxReg(nn.Module):
-    def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim, output_dim, final_dropout, dropout_layers, learn_eps, graph_pooling_type, neighbor_pooling_type, device):
+    def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim, output_dim, final_dropout, dropout_layers, learn_eps, graph_pooling_type, neighbor_pooling_type, sparsity, device):
         '''
             num_layers: number of layers in the neural networks (INCLUDING the input layer)
             num_mlp_layers: number of layers in mlps (EXCLUDING the input layer)
@@ -39,6 +39,7 @@ class GIN_InfoMaxReg(nn.Module):
         self.neighbor_pooling_type = neighbor_pooling_type
         self.learn_eps = learn_eps
         self.eps = nn.Parameter(torch.zeros(num_layers))
+        self.sparsity = sparsity
 
         ###List of MLPs
         self.mlps = torch.nn.ModuleList()
@@ -198,7 +199,22 @@ class GIN_InfoMaxReg(nn.Module):
         return h
 
 
+    def next_layer_dense(self, h, layer, Adj_matrix = None):
+        #If sum or average pooling
+        pooled = torch.mm(Adj_matrix, h)
+
+        #representation of neighboring and center nodes
+        pooled_rep = self.mlps[layer](pooled)
+
+        h = self.batch_norms[layer](pooled_rep)
+
+        #non-linearity
+        h = self.relu(h)
+        return h
+
+
     def forward(self, batch_graph, latent=False):
+        torch.cuda.empty_cache()
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
         graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
 
@@ -207,34 +223,50 @@ class GIN_InfoMaxReg(nn.Module):
         for i in rand_seq:
             idx += [i]*len(batch_graph[0].node_features) #[graph index in minibatch as label]
 
-        if self.neighbor_pooling_type == "max":
-            padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)
+        if self.sparsity is None:
+            if batch_graph[0].edge_mat[0,0]==0.0:
+                Adj_matrix = torch.eye(len(batch_graph)*len(batch_graph[0].node_features))
+            else:
+                Adj_matrix = torch.zeros([len(batch_graph)*len(batch_graph[0].node_features), len(batch_graph)*len(batch_graph[0].node_features)])
+            for i, g in enumerate(batch_graph):
+                Adj_matrix[i*len(batch_graph[0].node_features):(i+1)*len(batch_graph[0].node_features), i*len(batch_graph[0].node_features):(i+1)*len(batch_graph[0].node_features)] += g.edge_mat
+            Adj_matrix = Adj_matrix.to(self.device)
         else:
-            Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
+            if self.neighbor_pooling_type == "max":
+                padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)
+            else:
+                Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
 
         #list of hidden representation at each layer (including input)
         hidden_rep = []
         h = X_concat
 
-        for layer in range(self.num_layers):
-            if self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
+        if self.sparsity is None:
+            for layer in range(self.num_layers):
+                h = self.next_layer_dense(h, layer, Adj_matrix)
                 if str(layer) in self.dropout_layers:
                     h = F.dropout(h, 0.5, training=self.training)
-            elif not self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
-                if str(layer) in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
-            elif self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
-                if str(layer) in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
-            elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, Adj_block = Adj_block)
-                if str(layer) in self.dropout_layers:
-                    h = F.dropout(h, 0.5, training=self.training)
+                hidden_rep.append(h)
+        else:
+            for layer in range(self.num_layers):
+                if self.neighbor_pooling_type == "max" and self.learn_eps:
+                    h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+                elif not self.neighbor_pooling_type == "max" and self.learn_eps:
+                    h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+                elif self.neighbor_pooling_type == "max" and not self.learn_eps:
+                    h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+                elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
+                    h = self.next_layer(h, layer, Adj_block = Adj_block)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
 
-            hidden_rep.append(h) # [[557,7],[557,64]x4]
+                hidden_rep.append(h) # [[557,7],[557,64]x4]
 
         c_logit = 0
 
@@ -278,26 +310,51 @@ class GIN_InfoMaxReg(nn.Module):
         predicting_class = torch.zeros([1,2]).to(self.device)
         predicting_class[0, cls] = 1
 
-        if self.neighbor_pooling_type == "max":
-            padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)
+        if self.sparsity is None:
+            if batch_graph[0].edge_mat[0,0]==0.0:
+                Adj_matrix = torch.eye(len(batch_graph)*len(batch_graph[0].node_features))
+            else:
+                Adj_matrix = torch.zeros([len(batch_graph)*len(batch_graph[0].node_features), len(batch_graph)*len(batch_graph[0].node_features)])
+            for i, g in enumerate(batch_graph):
+                Adj_matrix[i*len(batch_graph[0].node_features):(i+1)*len(batch_graph[0].node_features), i*len(batch_graph[0].node_features):(i+1)*len(batch_graph[0].node_features)] += g.edge_mat
+            Adj_matrix = Adj_matrix.to(self.device)
         else:
-            Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
+            if self.neighbor_pooling_type == "max":
+                padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)
+            else:
+                Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
 
         #list of hidden representation at each layer (including input)
         hidden_rep = []
         h = X_concat
 
-        for layer in range(self.num_layers):
-            if self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
-            elif not self.neighbor_pooling_type == "max" and self.learn_eps:
-                h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
-            elif self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
-            elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
-                h = self.next_layer(h, layer, Adj_block = Adj_block)
-            h.retain_grad()
-            hidden_rep.append(h) # [[557,7],[557,64]x4]
+        if self.sparsity is None:
+            for layer in range(self.num_layers):
+                h = self.next_layer_dense(h, layer, Adj_matrix)
+                if str(layer) in self.dropout_layers:
+                    h = F.dropout(h, 0.5, training=self.training)
+                h.retain_grad()
+                hidden_rep.append(h)
+        else:
+            for layer in range(self.num_layers):
+                if self.neighbor_pooling_type == "max" and self.learn_eps:
+                    h = self.next_layer_eps(h, layer, padded_neighbor_list = padded_neighbor_list)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+                elif not self.neighbor_pooling_type == "max" and self.learn_eps:
+                    h = self.next_layer_eps(h, layer, Adj_block = Adj_block)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+                elif self.neighbor_pooling_type == "max" and not self.learn_eps:
+                    h = self.next_layer(h, layer, padded_neighbor_list = padded_neighbor_list)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+                elif not self.neighbor_pooling_type == "max" and not self.learn_eps:
+                    h = self.next_layer(h, layer, Adj_block = Adj_block)
+                    if str(layer) in self.dropout_layers:
+                        h = F.dropout(h, 0.5, training=self.training)
+
+                hidden_rep.append(h) # [[557,7],[557,64]x4]
 
         score_over_layer = 0
         class_activation = torch.zeros([X_concat.shape[0]]).to(self.device)

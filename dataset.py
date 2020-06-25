@@ -47,6 +47,35 @@ class DataNodes(object):
 
     def get_feature(self, type): # List of 'YeoNetwork', 'Hemisphere', 'Network', 'Region', 'Index'
         feature=['Hemisphere', 'Region', 'Network', 'Index']
+
+        hemisphere_seen = []
+        hemisphere_dict = {}
+        hemisphere_features = self.features['Hemisphere'].to_dict()
+        for v in hemisphere_features.values():
+            if v not in hemisphere_seen:
+                hemisphere_seen.append(v)
+                hemisphere_dict[v] = hemisphere_seen.index(v)
+        hemisphere_features = len(hemisphere_seen)
+        assert hemisphere_features == 2
+
+        region_seen = []
+        region_dict = {}
+        region_features = self.features['Region'].to_dict()
+        for v in region_features.values():
+            if v not in region_seen:
+                region_seen.append(v)
+                region_dict[v] = region_seen.index(v)
+        region_features = len(region_seen)
+
+        network_seen = []
+        network_dict = {}
+        network_features = self.features['Network'].to_dict()
+        for v in network_features.values():
+            if v not in network_seen:
+                network_seen.append(v)
+                network_dict[v] = network_seen.index(v)
+        network_features = len(network_seen)
+
         if type=='one_hot':
             filtered_features = self.features[feature]
             node_features = filtered_features.apply(lambda x: '_'.join(x), axis='columns').to_dict()
@@ -77,6 +106,31 @@ class DataNodes(object):
                 node_label[i] = tuple([timeseries])
             return node_label_numpy, node_label
 
+        elif type=='mean_bold_onehot':
+            node_label_numpy = np.mean(self.df_timeseries, axis=0)/10000.0
+            node_label = {}
+            for i, mean_timeseries in enumerate(node_label_numpy):
+                vec = np.zeros([len(node_label_numpy)])
+                vec[i] = mean_timeseries
+                node_label[i] = vec
+            return node_label_numpy, node_label
+
+        elif type=='mean_bold_onehot_features':
+            node_label_numpy = np.mean(self.df_timeseries, axis=0)/10000.0
+            node_label = {}
+            for i, mean_timeseries in enumerate(node_label_numpy):
+                vec_node = np.zeros([len(node_label_numpy)])
+                vec_node[i] = mean_timeseries
+                vec_hemisphere = np.zeros(hemisphere_features)
+                vec_hemisphere[hemisphere_dict[self.features['Hemisphere'].iloc[i]]] = 1
+                vec_region = np.zeros(region_features)
+                vec_region[region_dict[self.features['Region'].iloc[i]]] = 1
+                vec_network = np.zeros(network_features)
+                vec_network[network_dict[self.features['Network'].iloc[i]]] = 1
+
+                node_label[i] = np.concatenate([vec_node, vec_hemisphere, vec_region, vec_network])
+            return node_label_numpy, node_label
+
         else:
             raise Exception('unknown node feature type')
 
@@ -91,6 +145,8 @@ class DataEdges(object):
         self.df = pd.read_csv('data/connectivity/{}/{}/{}/r{}.txt'.format(preprocessing, run, rois, subject), index_col=False, header=None, delimiter='\t').dropna(axis='columns').to_numpy()
 
     def get_adjacency(self, threshold):
+        if threshold is None:
+            return self.df
         mask = (self.df > np.percentile(self.df, threshold)).astype(np.uint8)
         nodes, neighbors = np.nonzero(mask)
         sparse_mask = {}

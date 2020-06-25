@@ -132,17 +132,17 @@ def main():
     parser.add_argument('--neighbor_pooling_type', type=str, default="sum", choices=["sum", "average", "max"], help='Pooling for over neighboring nodes: sum, average or max')
     parser.add_argument('--learn_eps', action="store_true", help='whether to learn the epsilon weighting for the center nodes. Does not affect training accuracy though.')
     parser.add_argument('--exp', type = str, default = "graph_neural_mapping", help='experiment name')
-    parser.add_argument('--input_feature', type=str, default='one_hot', help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'timeseries_bold'])
+    parser.add_argument('--input_feature', type=str, default='one_hot', help='input feature type', choices=['one_hot', 'coordinate', 'mean_bold', 'mean_bold_onehot', 'mean_bold_onehot_features'])
     parser.add_argument('--preprocessing', type = str, default = "fixextended", help='HCP run to use', choices=['preproc', 'fixextended'])
     parser.add_argument('--run', type = str, default = "REST1_RL", help='HCP run to use', choices=['REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'])
     parser.add_argument('--rois', type = str, default = "7_400", help='rois [7/17 _ 100/200/300/400/500/600/700/800/900/1000]')
-    parser.add_argument('--sparsity', type=int, default=30, help='sparsity M of graph adjacency')
+    parser.add_argument('--sparsity', type=int, default=None, help='sparsity M of graph adjacency')
     args = parser.parse_args()
 
     #set up seeds and gpu device
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
@@ -158,7 +158,7 @@ def main():
 
         train_graphs, test_graphs = separate_data(graphs, args.fold_seed, current_fold)
 
-        model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, device).to(device)
+        model = GIN_InfoMaxReg(args.num_layers, args.num_mlp_layers, train_graphs[0].node_features.shape[1], args.hidden_dim, num_classes, args.final_dropout, args.dropout_layers, args.learn_eps, args.graph_pooling_type, args.neighbor_pooling_type, args.sparsity, device).to(device)
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_rate)
 
@@ -214,6 +214,8 @@ def main():
             f.write(','.join(['fold','epoch', 'accuracy', 'precision', 'recall']))
             f.write("\n")
             f.write(','.join([str(current_fold), str(epoch_early), str(acc_test_early), str(precision_test_early), str(recall_test_early)]))
+            f.write("\n")
+            f.write(','.join([str(current_fold), str(args.epochs), str(acc_test), str(precision_test), str(recall_test)]))
             f.write("\n")
 
 if __name__ == '__main__':

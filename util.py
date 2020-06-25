@@ -7,13 +7,13 @@ from dataset import *
 from sklearn.model_selection import StratifiedKFold
 
 class S2VGraph(object):
-    def __init__(self, g, label, node_tags=None, node_features=None):
+    def __init__(self, g, label, node_tags=None, node_features=None, edge_mat=0):
         self.label = label
         self.g = g
-        self.node_tags = node_tags
         self.neighbors = []
-        self.node_features = 0
-        self.edge_mat = 0
+        self.node_tags = node_tags
+        self.node_features = node_features
+        self.edge_mat = edge_mat
         self.max_neighbor = 0
 
 
@@ -34,7 +34,11 @@ def load_data(preprocessing, run, rois, threshold, type):
         if 'bold' in type: roi(subject)
         _, node_labels = roi.get_feature(type)
         connectivity(preprocessing, run, rois, subject)
-        _, connection = connectivity.get_adjacency(100-threshold)
+        if threshold is None:
+            connection = connectivity.get_adjacency(threshold)
+        else:
+            _, connection = connectivity.get_adjacency(100-threshold)
+
         n = node_labels
         l = behav_labels['Gender'][int(subject)]
         if not l in label_dict:
@@ -47,9 +51,12 @@ def load_data(preprocessing, run, rois, threshold, type):
         for j, node_label in enumerate(n.keys()):
             g.add_node(j)
             row = [node_labels[node_label]]
-            if j in connection:
-                row += [len(connection[j])]
-                row += connection[j]
+            if threshold is not None:
+                if j in connection:
+                    row += [len(connection[j])]
+                    row += connection[j]
+                else:
+                    row += [0]
             else:
                 row += [0]
             tmp = int(row[1]) + 2
@@ -70,9 +77,10 @@ def load_data(preprocessing, run, rois, threshold, type):
             if tmp > len(row):
                 node_features.append(attr)
 
-            n_edges += row[1]
-            for k in range(2, len(row)):
-                g.add_edge(j, row[k])
+            if threshold is not None:
+                n_edges += row[1]
+                for k in range(2, len(row)):
+                    g.add_edge(j, row[k])
 
         if node_features != []:
             node_features = np.stack(node_features)
@@ -82,35 +90,40 @@ def load_data(preprocessing, run, rois, threshold, type):
             node_feature_flag = False
         assert len(g) == len(n)
 
-        g_list.append(S2VGraph(g, l, node_tags))
+        if threshold is None:
+            g_list.append(S2VGraph(g, l, node_tags, edge_mat=torch.FloatTensor(connection)))
+        else:
+            g_list.append(S2VGraph(g, l, node_tags))
 
     #add labels and edge_mat
-    for g in g_list:
-        g.neighbors = [[] for i in range(len(g.g))]
-        for i, j in g.g.edges():
-            g.neighbors[i].append(j)
-            g.neighbors[j].append(i)
-        degree_list = []
-        for i in range(len(g.g)):
-            g.neighbors[i] = g.neighbors[i]
-            degree_list.append(len(g.neighbors[i]))
-        g.max_neighbor = max(degree_list)
+    if threshold is not None:
+        for g in g_list:
+            g.neighbors = [[] for i in range(len(g.g))]
+            for i, j in g.g.edges():
+                g.neighbors[i].append(j)
+                g.neighbors[j].append(i)
+            degree_list = []
+            for i in range(len(g.g)):
+                g.neighbors[i] = g.neighbors[i]
+                degree_list.append(len(g.neighbors[i]))
+            g.max_neighbor = max(degree_list)
 
-        g.label = label_dict[g.label]
+            g.label = label_dict[g.label]
 
-        edges = [list(pair) for pair in g.g.edges()]
-        edges.extend([[i, j] for j, i in edges])
+            edges = [list(pair) for pair in g.g.edges()]
+            edges.extend([[i, j] for j, i in edges])
 
-        deg_list = list(dict(g.g.degree(range(len(g.g)))).values())
-        g.edge_mat = torch.LongTensor(edges).transpose(0,1)
+            deg_list = list(dict(g.g.degree(range(len(g.g)))).values())
+            g.edge_mat = torch.LongTensor(edges).transpose(0,1)
 
     #Extracting unique tag labels
-    tagset = set([])
-    for g in g_list:
-        tagset = tagset.union(set(g.node_tags))
+    if type=='one_hot':
+        tagset = set([])
+        for g in g_list:
+            tagset = tagset.union(set(g.node_tags))
 
-    tagset = list(tagset)
-    tag2index = {tagset[i]:i for i in range(len(tagset))}
+        tagset = list(tagset)
+        tag2index = {tagset[i]:i for i in range(len(tagset))}
 
     for g in g_list:
         if type=='one_hot':
