@@ -27,7 +27,7 @@ class GIN_InfoMaxReg(nn.Module):
 
         super(GIN_InfoMaxReg, self).__init__()
 
-        self.disc = Discriminator(hidden_dim*num_layers)
+        self.disc = Discriminator(hidden_dim*(num_layers+1))
         self.sigm = nn.Sigmoid()
         self.relu = nn.ReLU()
 
@@ -43,6 +43,8 @@ class GIN_InfoMaxReg(nn.Module):
 
         ###List of MLPs
         self.mlps = torch.nn.ModuleList()
+        self.mlp_onehot = MLP(num_mlp_layers, 400, hidden_dim, hidden_dim)
+        self.batch_norm_onehot = nn.BatchNorm1d(hidden_dim)
 
         ###List of batchnorms applied to the output of MLP (input of the final prediction linear layer)
         self.batch_norms = torch.nn.ModuleList()
@@ -50,6 +52,9 @@ class GIN_InfoMaxReg(nn.Module):
         for layer in range(num_layers):
             if layer == 0:
                 self.mlps.append(MLP(num_mlp_layers, input_dim, hidden_dim, hidden_dim))
+                # self.mlps.append(nn.Linear(input_dim, hidden_dim))
+            elif layer == 1:
+                self.mlps.append(MLP(num_mlp_layers, hidden_dim*2, hidden_dim, hidden_dim))
             else:
                 self.mlps.append(MLP(num_mlp_layers, hidden_dim, hidden_dim, hidden_dim))
 
@@ -58,7 +63,10 @@ class GIN_InfoMaxReg(nn.Module):
         #Linear function that maps the hidden representation at dofferemt layers into a prediction score
         self.linears_prediction = torch.nn.ModuleList()
         for layer in range(num_layers):
-            self.linears_prediction.append(nn.Linear(hidden_dim, output_dim))
+            if layer == 0:
+                self.linears_prediction.append(nn.Linear(2*hidden_dim, output_dim))
+            else:
+                self.linears_prediction.append(nn.Linear(hidden_dim, output_dim))
 
 
     def __preprocess_neighbors_maxpool(self, batch_graph):
@@ -177,7 +185,6 @@ class GIN_InfoMaxReg(nn.Module):
 
     def next_layer(self, h, layer, padded_neighbor_list = None, Adj_block = None):
         ###pooling neighboring nodes and center nodes altogether
-
         if self.neighbor_pooling_type == "max":
             ##If max pooling
             pooled = self.maxpool(h, padded_neighbor_list)
@@ -193,9 +200,16 @@ class GIN_InfoMaxReg(nn.Module):
         pooled_rep = self.mlps[layer](pooled)
 
         h = self.batch_norms[layer](pooled_rep)
+        
+        if layer==0:
+            pooled_onehot = torch.spmm(Adj_block, torch.cat([torch.eye(400)]*(len(Adj_block)//400)).to(self.device))
+            pooled_rep_onehot = self.mlp_onehot(pooled_onehot)
+            h_onehot = self.batch_norm_onehot(pooled_rep_onehot)
+            h = torch.cat([h, h_onehot], 1)
 
         #non-linearity
         h = self.relu(h)
+
         return h
 
 
@@ -205,17 +219,22 @@ class GIN_InfoMaxReg(nn.Module):
 
         #representation of neighboring and center nodes
         pooled_rep = self.mlps[layer](pooled)
+        if layer==0:
+            pooled_onehot = torch.mm(Adj_matrix, torch.cat([torch.eye(400)]*(len(Adj_matrix)//400)).to(self.device))
+            pooled_rep += self.mlp_onehot(pooled_onehot)
 
         h = self.batch_norms[layer](pooled_rep)
 
         #non-linearity
         h = self.relu(h)
+
         return h
 
 
     def forward(self, batch_graph, latent=False):
         torch.cuda.empty_cache()
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
+        X_concat = X_concat.repeat(1,400)
         graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
 
         idx = []
@@ -303,6 +322,7 @@ class GIN_InfoMaxReg(nn.Module):
         self.zero_grad()
         assert len(batch_graph)==1
         X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device) # [557,7] ==> [concatenated nodes in batch_graph , node_features]
+        X_concat = X_concat.repeat(1,400)
         X_concat.requires_grad_()
         graph_pool = self.__preprocess_graphpool(batch_graph) # [32, 557]
 
